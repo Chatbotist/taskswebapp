@@ -448,8 +448,8 @@
                 <option value="not-urgent-not-important">Не срочно, не важно</option>
             </select>
             <div class="modal-buttons">
-                <button class="modal-button" onclick="closeModal('taskModal')">Отмена</button>
-                <button class="modal-button" onclick="saveTask()">Сохранить</button>
+                <button class="modal-button" onclick="app.closeModal('taskModal')">Отмена</button>
+                <button class="modal-button" onclick="app.saveTask()">Сохранить</button>
             </div>
         </div>
     </div>
@@ -459,14 +459,14 @@
             <input type="text" id="noteTitle" placeholder="Заголовок" required maxlength="30">
             <textarea id="noteContent" placeholder="Содержание (необязательно)" rows="3" maxlength="100"></textarea>
             <div class="modal-buttons">
-                <button class="modal-button" onclick="closeModal('noteModal')">Отмена</button>
-                <button class="modal-button" onclick="saveNote()">Сохранить</button>
+                <button class="modal-button" onclick="app.closeModal('noteModal')">Отмена</button>
+                <button class="modal-button" onclick="app.saveNote()">Сохранить</button>
             </div>
         </div>
     </div>
 
     <div class="full-view" id="fullView">
-        <button class="back-button" onclick="closeFullView()">×</button>
+        <button class="back-button" onclick="app.closeFullView()">×</button>
         <div class="full-view-content">
             <h2 id="fullViewTitle"></h2>
             <p id="fullViewContent"></p>
@@ -476,504 +476,537 @@
     </div>
 
     <script>
-        // Telegram WebApp initialization
-        const initTelegramWebApp = () => {
-            if (window.Telegram && window.Telegram.WebApp) {
-                const { WebApp } = window.Telegram;
-                WebApp.setBackgroundColor("#000000");
-                WebApp.setHeaderColor("#000000");
-                WebApp.expand();
-                WebApp.enableClosingConfirmation();
-                WebApp.disableVerticalSwipes();
-                WebApp.lockOrientation?.('portrait');
+        // Main application object
+        const app = {
+            // Telegram WebApp instance
+            webApp: null,
+            
+            // State management
+            currentSection: 'tasks',
+            showCompleted: false,
+            currentCategory: 'all',
+            editingItemId: null,
+            currentFullViewItem: null,
+            
+            // Data
+            tasks: [],
+            notes: [],
+            
+            // Initialize the application
+            init: function() {
+                this.initTelegramWebApp();
+                this.initEventListeners();
+                this.loadData();
+            },
+            
+            // Telegram WebApp initialization
+            initTelegramWebApp: function() {
+                if (window.Telegram && window.Telegram.WebApp) {
+                    this.webApp = window.Telegram.WebApp;
+                    this.webApp.setBackgroundColor("#000000");
+                    this.webApp.setHeaderColor("#000000");
+                    this.webApp.expand();
+                    this.webApp.enableClosingConfirmation();
+                    this.webApp.disableVerticalSwipes();
+                    if (this.webApp.lockOrientation) {
+                        this.webApp.lockOrientation('portrait');
+                    }
 
-                // Set theme based on Telegram theme
-                document.body.setAttribute('data-theme', WebApp.colorScheme);
-                if (WebApp.colorScheme === 'light') {
-                    WebApp.setBackgroundColor("#ffffff");
-                    WebApp.setHeaderColor("#ffffff");
-                }
-
-                return WebApp;
-            } else {
-                console.warn("Telegram WebApp API недоступен.");
-                return null;
-            }
-        };
-
-        const webApp = initTelegramWebApp();
-
-        // CloudStorage wrapper
-        const cloudStorage = {
-            get: (key, callback) => {
-                if (webApp?.CloudStorage) {
-                    webApp.CloudStorage.getItem(key, callback);
+                    // Set theme based on Telegram theme
+                    document.body.setAttribute('data-theme', this.webApp.colorScheme);
+                    if (this.webApp.colorScheme === 'light') {
+                        this.webApp.setBackgroundColor("#ffffff");
+                        this.webApp.setHeaderColor("#ffffff");
+                    }
                 } else {
-                    callback(null, localStorage.getItem(key));
+                    console.warn("Telegram WebApp API недоступен.");
                 }
             },
-            set: (key, value, callback) => {
-                if (webApp?.CloudStorage) {
-                    webApp.CloudStorage.setItem(key, value, callback);
-                } else {
-                    localStorage.setItem(key, value);
-                    if (callback) callback(null, true);
-                }
-            },
-            remove: (key, callback) => {
-                if (webApp?.CloudStorage) {
-                    webApp.CloudStorage.removeItem(key, callback);
-                } else {
-                    localStorage.removeItem(key);
-                    if (callback) callback(null, true);
-                }
-            },
-            getKeys: (callback) => {
-                if (webApp?.CloudStorage) {
-                    webApp.CloudStorage.getKeys(callback);
-                } else {
-                    callback(null, Object.keys(localStorage));
-                }
-            }
-        };
-
-        // State management
-        let currentSection = 'tasks';
-        let showCompleted = false;
-        let currentCategory = 'all';
-        let editingItemId = null;
-        let currentFullViewItem = null;
-        
-        // Get user identifier
-        const getUserId = () => {
-            if (webApp) {
-                return `tg_${webApp.initDataUnsafe?.user?.id}`;
-            }
-            return 'local_user';
-        };
-
-        const userId = getUserId();
-
-        // Initialize data
-        let tasks = [];
-        let notes = [];
-
-        // Load data from CloudStorage
-        const loadData = (callback) => {
-            cloudStorage.get(`${userId}_tasks`, (err, data) => {
-                if (!err && data) {
-                    tasks = JSON.parse(data);
-                } else {
-                    tasks = [];
-                }
-                
-                cloudStorage.get(`${userId}_notes`, (err, data) => {
-                    if (!err && data) {
-                        notes = JSON.parse(data);
+            
+            // CloudStorage wrapper
+            cloudStorage: {
+                get: function(key, callback) {
+                    if (app.webApp?.CloudStorage) {
+                        try {
+                            app.webApp.CloudStorage.getItem(key, callback);
+                        } catch (e) {
+                            console.error('CloudStorage get error:', e);
+                            callback(e, null);
+                        }
                     } else {
-                        notes = [];
+                        callback(null, localStorage.getItem(key));
+                    }
+                },
+                set: function(key, value, callback) {
+                    if (app.webApp?.CloudStorage) {
+                        try {
+                            app.webApp.CloudStorage.setItem(key, value, callback);
+                        } catch (e) {
+                            console.error('CloudStorage set error:', e);
+                            if (callback) callback(e, false);
+                        }
+                    } else {
+                        localStorage.setItem(key, value);
+                        if (callback) callback(null, true);
+                    }
+                },
+                remove: function(key, callback) {
+                    if (app.webApp?.CloudStorage) {
+                        try {
+                            app.webApp.CloudStorage.removeItem(key, callback);
+                        } catch (e) {
+                            console.error('CloudStorage remove error:', e);
+                            if (callback) callback(e, false);
+                        }
+                    } else {
+                        localStorage.removeItem(key);
+                        if (callback) callback(null, true);
+                    }
+                }
+            },
+            
+            // Get user identifier
+            getUserId: function() {
+                if (this.webApp) {
+                    return `tg_${this.webApp.initDataUnsafe?.user?.id || 'unknown'}`;
+                }
+                return 'local_user';
+            },
+            
+            // Load data from storage
+            loadData: function() {
+                const userId = this.getUserId();
+                this.cloudStorage.get(`${userId}_tasks`, (err, data) => {
+                    if (!err && data) {
+                        try {
+                            this.tasks = JSON.parse(data);
+                        } catch (e) {
+                            console.error('Error parsing tasks:', e);
+                            this.tasks = [];
+                        }
+                    } else {
+                        this.tasks = [];
                     }
                     
-                    if (callback) callback();
+                    this.cloudStorage.get(`${userId}_notes`, (err, data) => {
+                        if (!err && data) {
+                            try {
+                                this.notes = JSON.parse(data);
+                            } catch (e) {
+                                console.error('Error parsing notes:', e);
+                                this.notes = [];
+                            }
+                        } else {
+                            this.notes = [];
+                        }
+                        
+                        this.renderItems();
+                        this.updateCategoryCounts();
+                    });
                 });
-            });
-        };
-
-        // Save data to CloudStorage
-        const saveData = (callback) => {
-            cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
-                cloudStorage.set(`${userId}_notes`, JSON.stringify(notes), () => {
-                    if (callback) callback();
-                });
-            });
-        };
-
-        // Format date
-        const formatDate = (timestamp) => {
-            const date = new Date(timestamp);
-            return date.toLocaleString();
-        };
-
-        // Get task count by category
-        const getTaskCount = (category) => {
-            if (category === 'all') {
-                return tasks.filter(task => !task.completed).length;
-            }
-            return tasks.filter(task => task.category === category && !task.completed).length;
-        };
-
-        // Update category counts
-        const updateCategoryCounts = () => {
-            const categoryButtons = document.querySelectorAll('.category');
-            categoryButtons.forEach(button => {
-                const categoryText = button.textContent.split('(')[0].trim();
-                const categoryValue = 
-                    categoryText === 'Все задачи' ? 'all' :
-                    categoryText === 'Срочно, важно' ? 'urgent-important' :
-                    categoryText === 'Не срочно, важно' ? 'not-urgent-important' :
-                    categoryText === 'Срочно, не важно' ? 'urgent-not-important' :
-                    'not-urgent-not-important';
-                
-                const count = getTaskCount(categoryValue);
-                button.innerHTML = `${categoryText} <span class="category-count">${count}</span>`;
-            });
-        };
-
-        // Vibration function
-        const vibrate = () => {
-            if (webApp?.HapticFeedback) {
-                webApp.HapticFeedback.impactOccurred('medium');
-            } else if (navigator.vibrate) {
-                navigator.vibrate(50);
-            }
-        };
-
-        // Section switching
-        const switchSection = (section) => {
-            vibrate();
-            currentSection = section;
-            navItems.forEach(item => {
-                item.classList.toggle('active', item.dataset.section === section);
-            });
-            renderItems();
-        };
-
-        // Modal handling
-        const openModal = (modalId) => {
-            vibrate();
-            document.getElementById(modalId).style.display = 'flex';
-        };
-
-        const closeModal = (modalId) => {
-            vibrate();
-            document.getElementById(modalId).style.display = 'none';
-            editingItemId = null;
-        };
-
-        // Full view handling
-        const openFullView = (item) => {
-            vibrate();
-            currentFullViewItem = item;
+            },
             
-            document.getElementById('fullViewTitle').textContent = item.title;
-            
-            const content = currentSection === 'tasks' ? item.description : item.content;
-            document.getElementById('fullViewContent').textContent = content || 'Нет содержимого';
-            
-            let dateText = `Создано: ${formatDate(item.createdAt)}`;
-            if (currentSection === 'tasks' && item.completed && item.completedAt) {
-                dateText += `\nВыполнено: ${formatDate(item.completedAt)}`;
-            }
-            document.getElementById('fullViewDate').textContent = dateText;
-            
-            // Setup actions
-            const actionsContainer = document.getElementById('fullViewActions');
-            actionsContainer.innerHTML = '';
-            
-            if (currentSection === 'tasks') {
-                const completeButton = document.createElement('button');
-                completeButton.className = 'full-view-action-button';
-                completeButton.innerHTML = item.completed ? '↺' : '✓';
-                completeButton.onclick = (e) => {
-                    e.stopPropagation();
-                    toggleTaskComplete(item.id);
-                    closeFullView();
-                };
-                actionsContainer.appendChild(completeButton);
-            }
-            
-            const editButton = document.createElement('button');
-            editButton.className = 'full-view-action-button';
-            editButton.innerHTML = '✎';
-            editButton.onclick = (e) => {
-                e.stopPropagation();
-                closeFullView();
-                editItem(item.id);
-            };
-            actionsContainer.appendChild(editButton);
-            
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'full-view-action-button';
-            deleteButton.innerHTML = '×';
-            deleteButton.onclick = (e) => {
-                e.stopPropagation();
-                deleteItem(item.id);
-                closeFullView();
-            };
-            actionsContainer.appendChild(deleteButton);
-            
-            document.getElementById('fullView').style.display = 'block';
-        };
-
-        const closeFullView = () => {
-            vibrate();
-            document.getElementById('fullView').style.display = 'none';
-            currentFullViewItem = null;
-        };
-
-        // Item management
-        const saveTask = () => {
-            vibrate();
-            const title = document.getElementById('taskTitle').value.trim();
-            const description = document.getElementById('taskDescription').value.trim();
-            const category = document.getElementById('taskCategory').value;
-
-            if (!title) return;
-
-            const task = {
-                id: editingItemId || Date.now().toString(),
-                title,
-                description,
-                category,
-                completed: false,
-                createdAt: editingItemId ? 
-                    (tasks.find(t => t.id === editingItemId)?.createdAt || Date.now() 
-                    Date.now()
-            };
-
-            if (editingItemId) {
-                const existingTask = tasks.find(t => t.id === editingItemId);
-                if (existingTask) {
-                    task.completed = existingTask.completed;
-                    task.completedAt = existingTask.completedAt;
-                }
-                tasks = tasks.map(t => t.id === editingItemId ? task : t);
-            } else {
-                tasks.unshift(task);
-            }
-
-            saveData(() => {
-                closeModal('taskModal');
-                renderItems();
-                updateCategoryCounts();
-            });
-        };
-
-        const saveNote = () => {
-            vibrate();
-            const title = document.getElementById('noteTitle').value.trim();
-            const content = document.getElementById('noteContent').value.trim();
-
-            if (!title) return;
-
-            const note = {
-                id: editingItemId || Date.now().toString(),
-                title,
-                content,
-                createdAt: editingItemId ? 
-                    (notes.find(n => n.id === editingItemId)?.createdAt || Date.now()) : 
-                    Date.now()
-            };
-
-            if (editingItemId) {
-                notes = notes.map(n => n.id === editingItemId ? note : n);
-            } else {
-                notes.unshift(note);
-            }
-
-            saveData(() => {
-                closeModal('noteModal');
-                renderItems();
-            });
-        };
-
-        // Task completion toggle
-        const toggleTaskComplete = (taskId) => {
-            vibrate();
-            tasks = tasks.map(task => {
-                if (task.id === taskId) {
-                    const completed = !task.completed;
-                    return {
-                        ...task,
-                        completed,
-                        completedAt: completed ? Date.now() : undefined
-                    };
-                }
-                return task;
-            });
-            
-            saveData(() => {
-                renderItems();
-                updateCategoryCounts();
-            });
-        };
-
-        const deleteItem = (id) => {
-            vibrate();
-            if (currentSection === 'tasks') {
-                tasks = tasks.filter(task => task.id !== id);
-            } else {
-                notes = notes.filter(note => note.id !== id);
-            }
-            
-            saveData(() => {
-                renderItems();
-                if (currentSection === 'tasks') {
-                    updateCategoryCounts();
-                }
-            });
-        };
-
-        const editItem = (id) => {
-            vibrate();
-            editingItemId = id;
-            
-            if (currentSection === 'tasks') {
-                const task = tasks.find(t => t.id === id);
-                document.getElementById('taskTitle').value = task.title;
-                document.getElementById('taskDescription').value = task.description || '';
-                document.getElementById('taskCategory').value = task.category;
-                openModal('taskModal');
-            } else {
-                const note = notes.find(n => n.id === id);
-                document.getElementById('noteTitle').value = note.title;
-                document.getElementById('noteContent').value = note.content || '';
-                openModal('noteModal');
-            }
-        };
-
-        // Sort tasks by importance
-        const sortTasksByImportance = (tasks) => {
-            const priorityOrder = {
-                'urgent-important': 0,
-                'not-urgent-important': 1,
-                'urgent-not-important': 2,
-                'not-urgent-not-important': 3
-            };
-            
-            return [...tasks].sort((a, b) => {
-                if (a.completed !== b.completed) {
-                    return a.completed ? 1 : -1;
-                }
-                return priorityOrder[a.category] - priorityOrder[b.category];
-            });
-        };
-
-        // Rendering
-        const renderItems = () => {
-            let items = currentSection === 'tasks' ? tasks : notes;
-            
-            if (currentSection === 'tasks') {
-                items = sortTasksByImportance(items);
-                
-                if (currentCategory !== 'all') {
-                    items = items.filter(task => task.category === currentCategory);
-                }
-                
-                const completedTasks = items.filter(task => task.completed);
-                const incompleteTasks = items.filter(task => !task.completed);
-                items = showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
-            }
-
-            if (items.length === 0) {
-                itemsContainer.innerHTML = `
-                    <div class="empty-state">
-                        ${currentSection === 'tasks' ? 
-                            (showCompleted ? 'Нет задач' : 'Нет активных задач') : 
-                            'Нет заметок'}
-                    </div>
-                `;
-                return;
-            }
-
-            itemsContainer.innerHTML = items.map(item => {
-                const dateText = currentSection === 'tasks' && item.completed && item.completedAt ?
-                    `Создано: ${formatDate(item.createdAt)}\nВыполнено: ${formatDate(item.completedAt)}` :
-                    `Создано: ${formatDate(item.createdAt)}`;
-
-                if (currentSection === 'tasks') {
-                    return `
-                        <div class="task-card ${item.completed ? 'completed' : ''}" 
-                             style="border-left: 4px solid var(--${item.category})"
-                             onclick="openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                            <div class="card-content">
-                                <h3>${item.title}</h3>
-                                ${item.description ? `<p>${item.description}</p>` : ''}
-                                <div class="card-date">${dateText}</div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    return `
-                        <div class="note-card"
-                             onclick="openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                            <div class="card-content">
-                                <h3>${item.title}</h3>
-                                ${item.content ? `<p>${item.content}</p>` : ''}
-                                <div class="card-date">${dateText}</div>
-                            </div>
-                        </div>
-                    `;
-                }
-            }).join('');
-        };
-
-        // Event listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            // Navigation
-            navItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    switchSection(item.dataset.section);
-                });
-            });
-
-            // Add button
-            addButton.addEventListener('click', () => {
-                if (currentSection === 'tasks') {
-                    document.getElementById('taskTitle').value = '';
-                    document.getElementById('taskDescription').value = '';
-                    
-                    // Set default category based on current selection
-                    if (currentCategory !== 'all') {
-                        document.getElementById('taskCategory').value = currentCategory;
+            // Save data to storage
+            saveData: function(callback) {
+                const userId = this.getUserId();
+                this.cloudStorage.set(`${userId}_tasks`, JSON.stringify(this.tasks), (err) => {
+                    if (err) {
+                        console.error('Error saving tasks:', err);
                     }
                     
-                    openModal('taskModal');
-                } else {
-                    document.getElementById('noteTitle').value = '';
-                    document.getElementById('noteContent').value = '';
-                    openModal('noteModal');
+                    this.cloudStorage.set(`${userId}_notes`, JSON.stringify(this.notes), (err) => {
+                        if (err) {
+                            console.error('Error saving notes:', err);
+                        }
+                        
+                        if (callback) callback();
+                    });
+                });
+            },
+            
+            // Format date
+            formatDate: function(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleString();
+            },
+            
+            // Get task count by category
+            getTaskCount: function(category) {
+                if (category === 'all') {
+                    return this.tasks.filter(task => !task.completed).length;
                 }
-            });
-
-            // Show completed tasks
-            showCompletedButton.addEventListener('click', () => {
-                showCompleted = !showCompleted;
-                showCompletedButton.textContent = showCompleted ? 
-                    'Скрыть выполненные задачи' : 'Показать выполненные задачи';
-                renderItems();
-            });
-
-            // Category filters
-            document.querySelectorAll('.category').forEach(cat => {
-                cat.addEventListener('click', () => {
-                    const categoryText = cat.textContent.split('(')[0].trim();
-                    currentCategory = 
+                return this.tasks.filter(task => task.category === category && !task.completed).length;
+            },
+            
+            // Update category counts
+            updateCategoryCounts: function() {
+                const categoryButtons = document.querySelectorAll('.category');
+                categoryButtons.forEach(button => {
+                    const categoryText = button.textContent.split('(')[0].trim();
+                    const categoryValue = 
                         categoryText === 'Все задачи' ? 'all' :
                         categoryText === 'Срочно, важно' ? 'urgent-important' :
                         categoryText === 'Не срочно, важно' ? 'not-urgent-important' :
                         categoryText === 'Срочно, не важно' ? 'urgent-not-important' :
                         'not-urgent-not-important';
                     
-                    document.querySelectorAll('.category').forEach(c => c.classList.remove('active'));
-                    cat.classList.add('active');
-                    renderItems();
+                    const count = this.getTaskCount(categoryValue);
+                    button.innerHTML = `${categoryText} <span class="category-count">${count}</span>`;
                 });
-            });
+            },
+            
+            // Vibration function
+            vibrate: function() {
+                if (this.webApp?.HapticFeedback) {
+                    try {
+                        this.webApp.HapticFeedback.impactOccurred('medium');
+                    } catch (e) {
+                        console.error('Haptic feedback error:', e);
+                    }
+                } else if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            },
+            
+            // Section switching
+            switchSection: function(section) {
+                this.vibrate();
+                this.currentSection = section;
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.toggle('active', item.dataset.section === section);
+                });
+                this.renderItems();
+            },
+            
+            // Modal handling
+            openModal: function(modalId) {
+                this.vibrate();
+                document.getElementById(modalId).style.display = 'flex';
+            },
+            
+            closeModal: function(modalId) {
+                this.vibrate();
+                document.getElementById(modalId).style.display = 'none';
+                this.editingItemId = null;
+            },
+            
+            // Full view handling
+            openFullView: function(item) {
+                this.vibrate();
+                this.currentFullViewItem = item;
+                
+                document.getElementById('fullViewTitle').textContent = item.title;
+                
+                const content = this.currentSection === 'tasks' ? item.description : item.content;
+                document.getElementById('fullViewContent').textContent = content || 'Нет содержимого';
+                
+                let dateText = `Создано: ${this.formatDate(item.createdAt)}`;
+                if (this.currentSection === 'tasks' && item.completed && item.completedAt) {
+                    dateText += `\nВыполнено: ${this.formatDate(item.completedAt)}`;
+                }
+                document.getElementById('fullViewDate').textContent = dateText;
+                
+                // Setup actions
+                const actionsContainer = document.getElementById('fullViewActions');
+                actionsContainer.innerHTML = '';
+                
+                if (this.currentSection === 'tasks') {
+                    const completeButton = document.createElement('button');
+                    completeButton.className = 'full-view-action-button';
+                    completeButton.innerHTML = item.completed ? '↺' : '✓';
+                    completeButton.onclick = (e) => {
+                        e.stopPropagation();
+                        this.toggleTaskComplete(item.id);
+                        this.closeFullView();
+                    };
+                    actionsContainer.appendChild(completeButton);
+                }
+                
+                const editButton = document.createElement('button');
+                editButton.className = 'full-view-action-button';
+                editButton.innerHTML = '✎';
+                editButton.onclick = (e) => {
+                    e.stopPropagation();
+                    this.closeFullView();
+                    this.editItem(item.id);
+                };
+                actionsContainer.appendChild(editButton);
+                
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'full-view-action-button';
+                deleteButton.innerHTML = '×';
+                deleteButton.onclick = (e) => {
+                    e.stopPropagation();
+                    this.deleteItem(item.id);
+                    this.closeFullView();
+                };
+                actionsContainer.appendChild(deleteButton);
+                
+                document.getElementById('fullView').style.display = 'block';
+            },
+            
+            closeFullView: function() {
+                this.vibrate();
+                document.getElementById('fullView').style.display = 'none';
+                this.currentFullViewItem = null;
+            },
+            
+            // Item management
+            saveTask: function() {
+                this.vibrate();
+                const title = document.getElementById('taskTitle').value.trim();
+                const description = document.getElementById('taskDescription').value.trim();
+                const category = document.getElementById('taskCategory').value;
 
-            // Load initial data
-            loadData(() => {
-                renderItems();
-                updateCategoryCounts();
-            });
+                if (!title) return;
+
+                const task = {
+                    id: this.editingItemId || Date.now().toString(),
+                    title,
+                    description,
+                    category,
+                    completed: false,
+                    createdAt: this.editingItemId ? 
+                        (this.tasks.find(t => t.id === this.editingItemId)?.createdAt || Date.now()) : 
+                        Date.now()
+                };
+
+                if (this.editingItemId) {
+                    const existingTask = this.tasks.find(t => t.id === this.editingItemId);
+                    if (existingTask) {
+                        task.completed = existingTask.completed;
+                        task.completedAt = existingTask.completedAt;
+                    }
+                    this.tasks = this.tasks.map(t => t.id === this.editingItemId ? task : t);
+                } else {
+                    this.tasks.unshift(task);
+                }
+
+                this.saveData(() => {
+                    this.closeModal('taskModal');
+                    this.renderItems();
+                    this.updateCategoryCounts();
+                });
+            },
+            
+            saveNote: function() {
+                this.vibrate();
+                const title = document.getElementById('noteTitle').value.trim();
+                const content = document.getElementById('noteContent').value.trim();
+
+                if (!title) return;
+
+                const note = {
+                    id: this.editingItemId || Date.now().toString(),
+                    title,
+                    content,
+                    createdAt: this.editingItemId ? 
+                        (this.notes.find(n => n.id === this.editingItemId)?.createdAt || Date.now()) : 
+                        Date.now()
+                };
+
+                if (this.editingItemId) {
+                    this.notes = this.notes.map(n => n.id === this.editingItemId ? note : n);
+                } else {
+                    this.notes.unshift(note);
+                }
+
+                this.saveData(() => {
+                    this.closeModal('noteModal');
+                    this.renderItems();
+                });
+            },
+            
+            // Task completion toggle
+            toggleTaskComplete: function(taskId) {
+                this.vibrate();
+                this.tasks = this.tasks.map(task => {
+                    if (task.id === taskId) {
+                        const completed = !task.completed;
+                        return {
+                            ...task,
+                            completed,
+                            completedAt: completed ? Date.now() : undefined
+                        };
+                    }
+                    return task;
+                });
+                
+                this.saveData(() => {
+                    this.renderItems();
+                    this.updateCategoryCounts();
+                });
+            },
+            
+            deleteItem: function(id) {
+                this.vibrate();
+                if (this.currentSection === 'tasks') {
+                    this.tasks = this.tasks.filter(task => task.id !== id);
+                } else {
+                    this.notes = this.notes.filter(note => note.id !== id);
+                }
+                
+                this.saveData(() => {
+                    this.renderItems();
+                    if (this.currentSection === 'tasks') {
+                        this.updateCategoryCounts();
+                    }
+                });
+            },
+            
+            editItem: function(id) {
+                this.vibrate();
+                this.editingItemId = id;
+                
+                if (this.currentSection === 'tasks') {
+                    const task = this.tasks.find(t => t.id === id);
+                    document.getElementById('taskTitle').value = task.title;
+                    document.getElementById('taskDescription').value = task.description || '';
+                    document.getElementById('taskCategory').value = task.category;
+                    this.openModal('taskModal');
+                } else {
+                    const note = this.notes.find(n => n.id === id);
+                    document.getElementById('noteTitle').value = note.title;
+                    document.getElementById('noteContent').value = note.content || '';
+                    this.openModal('noteModal');
+                }
+            },
+            
+            // Sort tasks by importance
+            sortTasksByImportance: function(tasks) {
+                const priorityOrder = {
+                    'urgent-important': 0,
+                    'not-urgent-important': 1,
+                    'urgent-not-important': 2,
+                    'not-urgent-not-important': 3
+                };
+                
+                return [...tasks].sort((a, b) => {
+                    if (a.completed !== b.completed) {
+                        return a.completed ? 1 : -1;
+                    }
+                    return priorityOrder[a.category] - priorityOrder[b.category];
+                });
+            },
+            
+            // Rendering
+            renderItems: function() {
+                let items = this.currentSection === 'tasks' ? this.tasks : this.notes;
+                
+                if (this.currentSection === 'tasks') {
+                    items = this.sortTasksByImportance(items);
+                    
+                    if (this.currentCategory !== 'all') {
+                        items = items.filter(task => task.category === this.currentCategory);
+                    }
+                    
+                    const completedTasks = items.filter(task => task.completed);
+                    const incompleteTasks = items.filter(task => !task.completed);
+                    items = this.showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
+                }
+
+                if (items.length === 0) {
+                    document.getElementById('items-container').innerHTML = `
+                        <div class="empty-state">
+                            ${this.currentSection === 'tasks' ? 
+                                (this.showCompleted ? 'Нет задач' : 'Нет активных задач') : 
+                                'Нет заметок'}
+                        </div>
+                    `;
+                    return;
+                }
+
+                document.getElementById('items-container').innerHTML = items.map(item => {
+                    const dateText = this.currentSection === 'tasks' && item.completed && item.completedAt ?
+                        `Создано: ${this.formatDate(item.createdAt)}\nВыполнено: ${this.formatDate(item.completedAt)}` :
+                        `Создано: ${this.formatDate(item.createdAt)}`;
+
+                    if (this.currentSection === 'tasks') {
+                        return `
+                            <div class="task-card ${item.completed ? 'completed' : ''}" 
+                                 style="border-left: 4px solid var(--${item.category})"
+                                 onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                                <div class="card-content">
+                                    <h3>${item.title}</h3>
+                                    ${item.description ? `<p>${item.description}</p>` : ''}
+                                    <div class="card-date">${dateText}</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="note-card"
+                                 onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                                <div class="card-content">
+                                    <h3>${item.title}</h3>
+                                    ${item.content ? `<p>${item.content}</p>` : ''}
+                                    <div class="card-date">${dateText}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+            },
+            
+            // Initialize event listeners
+            initEventListeners: function() {
+                // Navigation
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        this.switchSection(item.dataset.section);
+                    });
+                });
+
+                // Add button
+                document.querySelector('.add-button').addEventListener('click', () => {
+                    if (this.currentSection === 'tasks') {
+                        document.getElementById('taskTitle').value = '';
+                        document.getElementById('taskDescription').value = '';
+                        
+                        // Set default category based on current selection
+                        if (this.currentCategory !== 'all') {
+                            document.getElementById('taskCategory').value = this.currentCategory;
+                        }
+                        
+                        this.openModal('taskModal');
+                    } else {
+                        document.getElementById('noteTitle').value = '';
+                        document.getElementById('noteContent').value = '';
+                        this.openModal('noteModal');
+                    }
+                });
+
+                // Show completed tasks
+                document.querySelector('.show-completed').addEventListener('click', () => {
+                    this.showCompleted = !this.showCompleted;
+                    document.querySelector('.show-completed').textContent = this.showCompleted ? 
+                        'Скрыть выполненные задачи' : 'Показать выполненные задачи';
+                    this.renderItems();
+                });
+
+                // Category filters
+                document.querySelectorAll('.category').forEach(cat => {
+                    cat.addEventListener('click', () => {
+                        const categoryText = cat.textContent.split('(')[0].trim();
+                        this.currentCategory = 
+                            categoryText === 'Все задачи' ? 'all' :
+                            categoryText === 'Срочно, важно' ? 'urgent-important' :
+                            categoryText === 'Не срочно, важно' ? 'not-urgent-important' :
+                            categoryText === 'Срочно, не важно' ? 'urgent-not-important' :
+                            'not-urgent-not-important';
+                        
+                        document.querySelectorAll('.category').forEach(c => c.classList.remove('active'));
+                        cat.classList.add('active');
+                        this.renderItems();
+                    });
+                });
+            }
+        };
+
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            app.init();
         });
-
-        // Global functions for inline handlers
-        window.openFullView = openFullView;
-        window.closeFullView = closeFullView;
-        window.closeModal = closeModal;
-        window.saveTask = saveTask;
-        window.saveNote = saveNote;
     </script>
 </body>
 </html>
