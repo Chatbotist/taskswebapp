@@ -81,13 +81,15 @@
             display: flex;
             gap: 8px;
             padding-bottom: 4px;
+            padding-left: 16px;
+            padding-right: 16px;
         }
 
         .category {
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
-            border: none;
+            border: 2px solid transparent;
             color: white;
             cursor: pointer;
             white-space: nowrap;
@@ -96,6 +98,7 @@
 
         .category.active {
             opacity: 1;
+            border-color: white;
         }
 
         .category:not(.active) {
@@ -144,6 +147,7 @@
         .task-card.completed .card-content h3,
         .task-card.completed .card-content p {
             text-decoration: line-through;
+            margin-bottom: 8px;
         }
 
         .card-content {
@@ -238,11 +242,23 @@
             text-decoration: none;
             opacity: 0.6;
             cursor: pointer;
+            position: relative;
         }
 
         .nav-item.active {
             opacity: 1;
             color: #2196F3;
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50%;
+            height: 2px;
+            background-color: #2196F3;
         }
 
         .modal {
@@ -278,6 +294,10 @@
             color: white;
         }
 
+        .modal textarea {
+            min-height: 100px;
+        }
+
         .modal-buttons {
             display: flex;
             justify-content: flex-end;
@@ -298,8 +318,10 @@
             border: none;
             padding: 8px 16px;
             border-radius: 20px;
-            margin-bottom: 16px;
+            margin: 0 16px 16px;
             cursor: pointer;
+            display: block;
+            width: calc(100% - 32px);
         }
 
         .full-view {
@@ -368,6 +390,39 @@
 
         .full-view-action-button.delete {
             font-size: 22px;
+        }
+
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            padding-bottom: 80px;
+        }
+
+        .note-card {
+            height: 0;
+            padding-bottom: 100%;
+            position: relative;
+            margin-bottom: 0;
+        }
+
+        .note-card .card-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .note-card .card-content p {
+            flex-grow: 1;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 5;
+            -webkit-box-orient: vertical;
         }
 
         @media (max-width: 380px) {
@@ -443,7 +498,7 @@
     <div class="modal" id="taskModal">
         <div class="modal-content">
             <input type="text" id="taskTitle" placeholder="Название задачи" required>
-            <textarea id="taskDescription" placeholder="Описание (необязательно)" rows="3"></textarea>
+            <textarea id="taskDescription" placeholder="Описание (необязательно)"></textarea>
             <select id="taskCategory">
                 <option value="urgent-important">Срочно, важно</option>
                 <option value="not-urgent-important">Не срочно, важно</option>
@@ -460,7 +515,7 @@
     <div class="modal" id="noteModal">
         <div class="modal-content">
             <input type="text" id="noteTitle" placeholder="Заголовок" required>
-            <textarea id="noteContent" placeholder="Содержание (необязательно)" rows="3"></textarea>
+            <textarea id="noteContent" placeholder="Содержание (необязательно)"></textarea>
             <div class="modal-buttons">
                 <button class="modal-button" id="cancelNote">Отмена</button>
                 <button class="modal-button" id="saveNote">Сохранить</button>
@@ -589,11 +644,21 @@
                     });
 
                     // Task modal buttons
-                    this.elements.cancelTask.addEventListener('click', () => this.closeModal('taskModal'));
+                    this.elements.cancelTask.addEventListener('click', () => {
+                        this.closeModal('taskModal');
+                        if (this.currentFullViewItem) {
+                            this.openFullView(this.currentFullViewItem);
+                        }
+                    });
                     this.elements.saveTask.addEventListener('click', () => this.saveTask());
 
                     // Note modal buttons
-                    this.elements.cancelNote.addEventListener('click', () => this.closeModal('noteModal'));
+                    this.elements.cancelNote.addEventListener('click', () => {
+                        this.closeModal('noteModal');
+                        if (this.currentFullViewItem) {
+                            this.openFullView(this.currentFullViewItem);
+                        }
+                    });
                     this.elements.saveNote.addEventListener('click', () => this.saveNote());
                 },
 
@@ -651,26 +716,43 @@
                     const userId = this.getUserId();
                     
                     const saveTasks = () => {
+                        const tasksData = JSON.stringify(this.tasks);
+                        if (tasksData.length > 4096 && this.webApp?.CloudStorage) {
+                            console.warn('Tasks data too large for CloudStorage, splitting...');
+                            this.splitAndSaveData(`${userId}_tasks`, this.tasks, saveNotes);
+                            return;
+                        }
+
                         if (this.webApp?.CloudStorage) {
                             this.webApp.CloudStorage.setItem(
                                 `${userId}_tasks`, 
-                                JSON.stringify(this.tasks),
+                                tasksData,
                                 (err) => {
                                     if (err) console.error('Error saving tasks:', err);
                                     saveNotes();
                                 }
                             );
                         } else {
-                            localStorage.setItem(`${userId}_tasks`, JSON.stringify(this.tasks));
+                            localStorage.setItem(`${userId}_tasks`, tasksData);
                             saveNotes();
                         }
                     };
                     
                     const saveNotes = () => {
+                        const notesData = JSON.stringify(this.notes);
+                        if (notesData.length > 4096 && this.webApp?.CloudStorage) {
+                            console.warn('Notes data too large for CloudStorage, splitting...');
+                            this.splitAndSaveData(`${userId}_notes`, this.notes, () => {
+                                this.updateUI();
+                                if (callback) callback();
+                            });
+                            return;
+                        }
+
                         if (this.webApp?.CloudStorage) {
                             this.webApp.CloudStorage.setItem(
                                 `${userId}_notes`, 
-                                JSON.stringify(this.notes),
+                                notesData,
                                 (err) => {
                                     if (err) console.error('Error saving notes:', err);
                                     this.updateUI();
@@ -678,13 +760,55 @@
                                 }
                             );
                         } else {
-                            localStorage.setItem(`${userId}_notes`, JSON.stringify(this.notes));
+                            localStorage.setItem(`${userId}_notes`, notesData);
                             this.updateUI();
                             if (callback) callback();
                         }
                     };
                     
                     saveTasks();
+                },
+
+                splitAndSaveData: function(key, data, callback) {
+                    // Split data into chunks of max 4000 characters
+                    const stringData = JSON.stringify(data);
+                    const chunkSize = 4000;
+                    const chunks = [];
+                    
+                    for (let i = 0; i < stringData.length; i += chunkSize) {
+                        chunks.push(stringData.substring(i, i + chunkSize));
+                    }
+                    
+                    // Save each chunk with a suffix
+                    const saveChunk = (index) => {
+                        if (index >= chunks.length) {
+                            if (callback) callback();
+                            return;
+                        }
+                        
+                        this.webApp.CloudStorage.setItem(
+                            `${key}_${index}`, 
+                            chunks[index],
+                            (err) => {
+                                if (err) {
+                                    console.error(`Error saving chunk ${index}:`, err);
+                                }
+                                saveChunk(index + 1);
+                            }
+                        );
+                    };
+                    
+                    // First save the number of chunks
+                    this.webApp.CloudStorage.setItem(
+                        `${key}_count`, 
+                        chunks.length.toString(),
+                        (err) => {
+                            if (err) {
+                                console.error('Error saving chunk count:', err);
+                            }
+                            saveChunk(0);
+                        }
+                    );
                 },
 
                 getUserId: function() {
@@ -772,6 +896,24 @@
                     }
                 },
 
+                showConfirmPopup: function(title, message, callback) {
+                    if (this.webApp?.showPopup) {
+                        this.webApp.showPopup({
+                            title: title,
+                            message: message,
+                            buttons: [
+                                { id: 'confirm', type: 'default', text: 'Да' },
+                                { id: 'cancel', type: 'cancel', text: 'Нет' }
+                            ]
+                        }, (buttonId) => {
+                            callback(buttonId === 'confirm');
+                        });
+                    } else {
+                        const result = confirm(`${title}\n${message}`);
+                        callback(result);
+                    }
+                },
+
                 switchSection: function(section) {
                     this.vibrate();
                     this.currentSection = section;
@@ -836,7 +978,6 @@
                     editButton.innerHTML = '✎';
                     editButton.onclick = (e) => {
                         e.stopPropagation();
-                        this.closeFullView();
                         this.editItem(item.id);
                     };
                     this.elements.fullViewActions.appendChild(editButton);
@@ -846,8 +987,16 @@
                     deleteButton.innerHTML = '🗑️';
                     deleteButton.onclick = (e) => {
                         e.stopPropagation();
-                        this.deleteItem(item.id);
-                        this.closeFullView();
+                        this.showConfirmPopup(
+                            'Удаление',
+                            'Вы уверены, что хотите удалить эту запись?',
+                            (confirmed) => {
+                                if (confirmed) {
+                                    this.deleteItem(item.id);
+                                    this.closeFullView();
+                                }
+                            }
+                        );
                     };
                     this.elements.fullViewActions.appendChild(deleteButton);
                     
@@ -1033,36 +1182,52 @@
                         return;
                     }
 
+                    if (this.currentSection === 'notes') {
+                        this.renderNotesGrid(items);
+                    } else {
+                        this.renderTasksList(items);
+                    }
+                },
+
+                renderTasksList: function(items) {
                     this.elements.itemsContainer.innerHTML = items.map(item => {
                         const dateText = this.currentSection === 'tasks' && item.completed && item.completedAt ?
                             `Создано: ${this.formatDate(item.createdAt)}\nВыполнено: ${this.formatDate(item.completedAt)}` :
                             `Создано: ${this.formatDate(item.createdAt)}`;
 
-                        if (this.currentSection === 'tasks') {
-                            return `
-                                <div class="task-card ${item.completed ? 'completed' : ''}" 
-                                     style="border-left: 4px solid var(--${item.category})"
-                                     onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                    <div class="card-content">
-                                        <h3>${item.title}</h3>
-                                        ${item.description ? `<p>${item.description}</p>` : ''}
-                                        <div class="card-date">${dateText}</div>
-                                    </div>
+                        return `
+                            <div class="task-card ${item.completed ? 'completed' : ''}" 
+                                 style="border-left: 4px solid var(--${item.category})"
+                                 onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                                <div class="card-content">
+                                    <h3>${item.title}</h3>
+                                    ${item.description ? `<p>${item.description}</p>` : ''}
+                                    <div class="card-date">${dateText}</div>
                                 </div>
-                            `;
-                        } else {
-                            return `
-                                <div class="note-card"
-                                     onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                    <div class="card-content">
-                                        <h3>${item.title}</h3>
-                                        ${item.content ? `<p>${item.content}</p>` : ''}
-                                        <div class="card-date">${dateText}</div>
-                                    </div>
-                                </div>
-                            `;
-                        }
+                            </div>
+                        `;
                     }).join('');
+                },
+
+                renderNotesGrid: function(items) {
+                    this.elements.itemsContainer.innerHTML = `
+                        <div class="notes-grid">
+                            ${items.map(item => {
+                                const dateText = `Создано: ${this.formatDate(item.createdAt)}`;
+                                
+                                return `
+                                    <div class="note-card"
+                                         onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                                        <div class="card-content">
+                                            <h3>${item.title}</h3>
+                                            ${item.content ? `<p>${item.content}</p>` : ''}
+                                            <div class="card-date">${dateText}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
                 }
             };
 
