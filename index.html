@@ -30,7 +30,6 @@
             background-color: var(--background-color);
             color: var(--text-color);
             overscroll-behavior: none;
-            overflow: hidden;
             height: 100vh;
         }
 
@@ -125,7 +124,6 @@
             padding: 16px;
             margin-bottom: 12px;
             position: relative;
-            touch-action: none;
             cursor: pointer;
         }
 
@@ -137,6 +135,8 @@
         .task-card.completed .card-content h3,
         .task-card.completed .card-content p {
             text-decoration: line-through;
+            position: relative;
+            top: 0;
         }
 
         .card-content {
@@ -169,6 +169,7 @@
             font-size: 12px;
             color: #666;
             margin-top: 8px;
+            white-space: pre-line;
         }
 
         .card-actions {
@@ -203,6 +204,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        .action-button.delete {
+            font-size: 18px;
         }
 
         .bottom-nav {
@@ -326,6 +331,7 @@
             color: #666;
             font-size: 14px;
             margin-top: 16px;
+            white-space: pre-line;
         }
 
         .full-view-actions {
@@ -351,22 +357,8 @@
             justify-content: center;
         }
 
-        .full-view .back-button {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 40px;
-            height: 40px;
-            border-radius: 20px;
-            background: #333;
-            color: white;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1002;
+        .full-view-action-button.delete {
+            font-size: 22px;
         }
 
         @media (max-width: 380px) {
@@ -466,7 +458,6 @@
     </div>
 
     <div class="full-view" id="fullView">
-        <button class="back-button" onclick="app.closeFullView()">×</button>
         <div class="full-view-content">
             <h2 id="fullViewTitle"></h2>
             <p id="fullViewContent"></p>
@@ -580,10 +571,12 @@
                     if (!err && data) {
                         try {
                             this.tasks = JSON.parse(data);
-                        } catch (e) {
-                            console.error('Error parsing tasks:', e);
-                            this.tasks = [];
-                        }
+                        this.tasks.forEach(task => {
+                            // Ensure all tasks have required fields
+                            task.completed = task.completed || false;
+                            task.createdAt = task.createdAt || Date.now();
+                        });
+                        this.tasks.sort((a, b) => b.createdAt - a.createdAt);
                     } else {
                         this.tasks = [];
                     }
@@ -592,6 +585,11 @@
                         if (!err && data) {
                             try {
                                 this.notes = JSON.parse(data);
+                                this.notes.forEach(note => {
+                                    // Ensure all notes have required fields
+                                    note.createdAt = note.createdAt || Date.now();
+                                });
+                                this.notes.sort((a, b) => b.createdAt - a.createdAt);
                             } catch (e) {
                                 console.error('Error parsing notes:', e);
                                 this.notes = [];
@@ -600,8 +598,7 @@
                             this.notes = [];
                         }
                         
-                        this.renderItems();
-                        this.updateCategoryCounts();
+                        this.updateUI();
                     });
                 });
             },
@@ -619,9 +616,18 @@
                             console.error('Error saving notes:', err);
                         }
                         
+                        this.updateUI();
                         if (callback) callback();
                     });
                 });
+            },
+            
+            // Update all UI elements
+            updateUI: function() {
+                this.renderItems();
+                this.updateCategoryCounts();
+                this.updateCategorySelection();
+                this.updateSectionSelection();
             },
             
             // Format date
@@ -640,19 +646,60 @@
             
             // Update category counts
             updateCategoryCounts: function() {
+                const categories = [
+                    { text: 'Все задачи', value: 'all' },
+                    { text: 'Срочно, важно', value: 'urgent-important' },
+                    { text: 'Не срочно, важно', value: 'not-urgent-important' },
+                    { text: 'Срочно, не важно', value: 'urgent-not-important' },
+                    { text: 'Не срочно, не важно', value: 'not-urgent-not-important' }
+                ];
+                
                 const categoryButtons = document.querySelectorAll('.category');
-                categoryButtons.forEach(button => {
-                    const categoryText = button.textContent.split('(')[0].trim();
-                    const categoryValue = 
-                        categoryText === 'Все задачи' ? 'all' :
-                        categoryText === 'Срочно, важно' ? 'urgent-important' :
-                        categoryText === 'Не срочно, важно' ? 'not-urgent-important' :
-                        categoryText === 'Срочно, не важно' ? 'urgent-not-important' :
-                        'not-urgent-not-important';
+                categoryButtons.forEach((button, index) => {
+                    const category = categories[index];
+                    const count = this.getTaskCount(category.value);
+                    button.textContent = category.text;
+                    const countSpan = document.createElement('span');
+                    countSpan.className = 'category-count';
+                    countSpan.textContent = `(${count})`;
                     
-                    const count = this.getTaskCount(categoryValue);
-                    button.innerHTML = `${categoryText} <span class="category-count">${count}</span>`;
+                    // Remove old count if exists
+                    const oldCount = button.querySelector('.category-count');
+                    if (oldCount) {
+                        button.removeChild(oldCount);
+                    }
+                    
+                    button.appendChild(countSpan);
                 });
+            },
+            
+            // Update active category
+            updateCategorySelection: function() {
+                const categories = [
+                    { text: 'Все задачи', value: 'all' },
+                    { text: 'Срочно, важно', value: 'urgent-important' },
+                    { text: 'Не срочно, важно', value: 'not-urgent-important' },
+                    { text: 'Срочно, не важно', value: 'urgent-not-important' },
+                    { text: 'Не срочно, не важно', value: 'not-urgent-not-important' }
+                ];
+                
+                document.querySelectorAll('.category').forEach((button, index) => {
+                    const category = categories[index];
+                    button.classList.toggle('active', category.value === this.currentCategory);
+                });
+            },
+            
+            // Update active section
+            updateSectionSelection: function() {
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.toggle('active', item.dataset.section === this.currentSection);
+                });
+                
+                // Show/hide categories and completed button based on section
+                document.querySelector('.categories-container').style.display = 
+                    this.currentSection === 'tasks' ? 'block' : 'none';
+                document.querySelector('.show-completed').style.display = 
+                    this.currentSection === 'tasks' ? 'block' : 'none';
             },
             
             // Vibration function
@@ -672,16 +719,21 @@
             switchSection: function(section) {
                 this.vibrate();
                 this.currentSection = section;
-                document.querySelectorAll('.nav-item').forEach(item => {
-                    item.classList.toggle('active', item.dataset.section === section);
-                });
-                this.renderItems();
+                this.currentCategory = 'all'; // Reset category when switching sections
+                this.showCompleted = false;
+                document.querySelector('.show-completed').textContent = 'Показать выполненные задачи';
+                this.updateUI();
             },
             
             // Modal handling
             openModal: function(modalId) {
                 this.vibrate();
                 document.getElementById(modalId).style.display = 'flex';
+                
+                // Set default category for task modal
+                if (modalId === 'taskModal' && this.currentCategory !== 'all') {
+                    document.getElementById('taskCategory').value = this.currentCategory;
+                }
             },
             
             closeModal: function(modalId) {
@@ -690,7 +742,7 @@
                 this.editingItemId = null;
             },
             
-            // Full view handling
+            // Full view handling with BackButton
             openFullView: function(item) {
                 this.vibrate();
                 this.currentFullViewItem = item;
@@ -717,7 +769,6 @@
                     completeButton.onclick = (e) => {
                         e.stopPropagation();
                         this.toggleTaskComplete(item.id);
-                        this.closeFullView();
                     };
                     actionsContainer.appendChild(completeButton);
                 }
@@ -733,8 +784,8 @@
                 actionsContainer.appendChild(editButton);
                 
                 const deleteButton = document.createElement('button');
-                deleteButton.className = 'full-view-action-button';
-                deleteButton.innerHTML = '×';
+                deleteButton.className = 'full-view-action-button delete';
+                deleteButton.innerHTML = '🗑️';
                 deleteButton.onclick = (e) => {
                     e.stopPropagation();
                     this.deleteItem(item.id);
@@ -743,12 +794,26 @@
                 actionsContainer.appendChild(deleteButton);
                 
                 document.getElementById('fullView').style.display = 'block';
+                
+                // Show Telegram BackButton if available
+                if (this.webApp?.BackButton) {
+                    this.webApp.BackButton.show();
+                    this.webApp.BackButton.onClick(() => {
+                        this.closeFullView();
+                    });
+                }
             },
             
             closeFullView: function() {
                 this.vibrate();
                 document.getElementById('fullView').style.display = 'none';
                 this.currentFullViewItem = null;
+                
+                // Hide Telegram BackButton if available
+                if (this.webApp?.BackButton) {
+                    this.webApp.BackButton.offClick();
+                    this.webApp.BackButton.hide();
+                }
             },
             
             // Item management
@@ -784,8 +849,8 @@
 
                 this.saveData(() => {
                     this.closeModal('taskModal');
-                    this.renderItems();
-                    this.updateCategoryCounts();
+                    document.getElementById('taskTitle').value = '';
+                    document.getElementById('taskDescription').value = '';
                 });
             },
             
@@ -813,7 +878,8 @@
 
                 this.saveData(() => {
                     this.closeModal('noteModal');
-                    this.renderItems();
+                    document.getElementById('noteTitle').value = '';
+                    document.getElementById('noteContent').value = '';
                 });
             },
             
@@ -832,10 +898,7 @@
                     return task;
                 });
                 
-                this.saveData(() => {
-                    this.renderItems();
-                    this.updateCategoryCounts();
-                });
+                this.saveData();
             },
             
             deleteItem: function(id) {
@@ -846,12 +909,7 @@
                     this.notes = this.notes.filter(note => note.id !== id);
                 }
                 
-                this.saveData(() => {
-                    this.renderItems();
-                    if (this.currentSection === 'tasks') {
-                        this.updateCategoryCounts();
-                    }
-                });
+                this.saveData();
             },
             
             editItem: function(id) {
@@ -962,12 +1020,6 @@
                     if (this.currentSection === 'tasks') {
                         document.getElementById('taskTitle').value = '';
                         document.getElementById('taskDescription').value = '';
-                        
-                        // Set default category based on current selection
-                        if (this.currentCategory !== 'all') {
-                            document.getElementById('taskCategory').value = this.currentCategory;
-                        }
-                        
                         this.openModal('taskModal');
                     } else {
                         document.getElementById('noteTitle').value = '';
@@ -981,7 +1033,7 @@
                     this.showCompleted = !this.showCompleted;
                     document.querySelector('.show-completed').textContent = this.showCompleted ? 
                         'Скрыть выполненные задачи' : 'Показать выполненные задачи';
-                    this.renderItems();
+                    this.updateUI();
                 });
 
                 // Category filters
@@ -995,9 +1047,7 @@
                             categoryText === 'Срочно, не важно' ? 'urgent-not-important' :
                             'not-urgent-not-important';
                         
-                        document.querySelectorAll('.category').forEach(c => c.classList.remove('active'));
-                        cat.classList.add('active');
-                        this.renderItems();
+                        this.updateUI();
                     });
                 });
             }
