@@ -857,6 +857,7 @@
                         completeButton.onclick = (e) => {
                             e.stopPropagation();
                             this.toggleTaskComplete(item.id);
+                            this.closeFullView();
                         };
                         this.elements.fullViewActions.appendChild(completeButton);
                     }
