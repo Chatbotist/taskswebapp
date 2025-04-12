@@ -62,7 +62,6 @@
             width: 100%;
             overflow-x: auto;
             margin-bottom: 16px;
-            display: none;
             scrollbar-width: none;
         }
 
@@ -143,7 +142,8 @@
         .card-content {
             margin-right: 0;
             word-break: break-word;
-            overflow: hidden;
+            position: relative;
+            padding-bottom: 20px;
         }
 
         .card-content h3 {
@@ -162,6 +162,10 @@
         }
 
         .card-date {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
             font-size: 12px;
             color: #666;
             margin-top: 8px;
@@ -283,7 +287,6 @@
             border-radius: 20px;
             margin-bottom: 16px;
             cursor: pointer;
-            display: none;
         }
 
         .full-view {
@@ -299,6 +302,11 @@
             display: none;
         }
 
+        .full-view-content {
+            position: relative;
+            padding-bottom: 40px;
+        }
+
         .full-view h2 {
             margin-bottom: 16px;
             word-break: break-word;
@@ -307,12 +315,40 @@
         .full-view p {
             margin-bottom: 8px;
             word-break: break-word;
+            white-space: pre-line;
         }
 
         .full-view .date {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
             color: #666;
             font-size: 14px;
-            margin-bottom: 16px;
+            margin-top: 16px;
+        }
+
+        .full-view-actions {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            display: flex;
+            gap: 8px;
+            z-index: 1002;
+        }
+
+        .full-view-action-button {
+            width: 48px;
+            height: 48px;
+            border-radius: 24px;
+            background: #333;
+            color: white;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .full-view .back-button {
@@ -431,9 +467,12 @@
 
     <div class="full-view" id="fullView">
         <button class="back-button" onclick="closeFullView()">×</button>
-        <h2 id="fullViewTitle"></h2>
-        <div class="date" id="fullViewDate"></div>
-        <p id="fullViewContent"></p>
+        <div class="full-view-content">
+            <h2 id="fullViewTitle"></h2>
+            <p id="fullViewContent"></p>
+            <div class="date" id="fullViewDate"></div>
+        </div>
+        <div class="full-view-actions" id="fullViewActions"></div>
     </div>
 
     <script>
@@ -501,8 +540,9 @@
         // State management
         let currentSection = 'tasks';
         let showCompleted = false;
-        let currentCategory = null;
+        let currentCategory = 'all';
         let editingItemId = null;
+        let currentFullViewItem = null;
         
         // Get user identifier
         const getUserId = () => {
@@ -519,34 +559,34 @@
         let notes = [];
 
         // Load data from CloudStorage
-        const loadData = () => {
+        const loadData = (callback) => {
             cloudStorage.get(`${userId}_tasks`, (err, data) => {
                 if (!err && data) {
                     tasks = JSON.parse(data);
                 } else {
                     tasks = [];
                 }
-                renderItems();
-                updateCategoryCounts();
-            });
-
-            cloudStorage.get(`${userId}_notes`, (err, data) => {
-                if (!err && data) {
-                    notes = JSON.parse(data);
-                } else {
-                    notes = [];
-                }
-                renderItems();
+                
+                cloudStorage.get(`${userId}_notes`, (err, data) => {
+                    if (!err && data) {
+                        notes = JSON.parse(data);
+                    } else {
+                        notes = [];
+                    }
+                    
+                    if (callback) callback();
+                });
             });
         };
 
-        // UI Elements
-        const categoriesContainer = document.querySelector('.categories-container');
-        const categories = document.querySelector('.categories');
-        const showCompletedButton = document.querySelector('.show-completed');
-        const itemsContainer = document.getElementById('items-container');
-        const addButton = document.querySelector('.add-button');
-        const navItems = document.querySelectorAll('.nav-item');
+        // Save data to CloudStorage
+        const saveData = (callback) => {
+            cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
+                cloudStorage.set(`${userId}_notes`, JSON.stringify(notes), () => {
+                    if (callback) callback();
+                });
+            });
+        };
 
         // Format date
         const formatDate = (timestamp) => {
@@ -595,8 +635,6 @@
             navItems.forEach(item => {
                 item.classList.toggle('active', item.dataset.section === section);
             });
-            categoriesContainer.style.display = section === 'tasks' ? 'block' : 'none';
-            showCompletedButton.style.display = section === 'tasks' ? 'block' : 'none';
             renderItems();
         };
 
@@ -615,6 +653,8 @@
         // Full view handling
         const openFullView = (item) => {
             vibrate();
+            currentFullViewItem = item;
+            
             document.getElementById('fullViewTitle').textContent = item.title;
             
             const content = currentSection === 'tasks' ? item.description : item.content;
@@ -622,9 +662,45 @@
             
             let dateText = `Создано: ${formatDate(item.createdAt)}`;
             if (currentSection === 'tasks' && item.completed && item.completedAt) {
-                dateText += `<br>Выполнено: ${formatDate(item.completedAt)}`;
+                dateText += `\nВыполнено: ${formatDate(item.completedAt)}`;
             }
-            document.getElementById('fullViewDate').innerHTML = dateText;
+            document.getElementById('fullViewDate').textContent = dateText;
+            
+            // Setup actions
+            const actionsContainer = document.getElementById('fullViewActions');
+            actionsContainer.innerHTML = '';
+            
+            if (currentSection === 'tasks') {
+                const completeButton = document.createElement('button');
+                completeButton.className = 'full-view-action-button';
+                completeButton.innerHTML = item.completed ? '↺' : '✓';
+                completeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleTaskComplete(item.id);
+                    closeFullView();
+                };
+                actionsContainer.appendChild(completeButton);
+            }
+            
+            const editButton = document.createElement('button');
+            editButton.className = 'full-view-action-button';
+            editButton.innerHTML = '✎';
+            editButton.onclick = (e) => {
+                e.stopPropagation();
+                closeFullView();
+                editItem(item.id);
+            };
+            actionsContainer.appendChild(editButton);
+            
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'full-view-action-button';
+            deleteButton.innerHTML = '×';
+            deleteButton.onclick = (e) => {
+                e.stopPropagation();
+                deleteItem(item.id);
+                closeFullView();
+            };
+            actionsContainer.appendChild(deleteButton);
             
             document.getElementById('fullView').style.display = 'block';
         };
@@ -632,6 +708,7 @@
         const closeFullView = () => {
             vibrate();
             document.getElementById('fullView').style.display = 'none';
+            currentFullViewItem = null;
         };
 
         // Item management
@@ -649,20 +726,25 @@
                 description,
                 category,
                 completed: false,
-                createdAt: Date.now()
+                createdAt: editingItemId ? 
+                    (tasks.find(t => t.id === editingItemId)?.createdAt || Date.now() : 
+                    Date.now()
             };
 
             if (editingItemId) {
-                tasks = tasks.map(t => t.id === editingItemId ? {...t, ...task} : t);
+                const existingTask = tasks.find(t => t.id === editingItemId);
+                if (existingTask) {
+                    task.completed = existingTask.completed;
+                    task.completedAt = existingTask.completedAt;
+                }
+                tasks = tasks.map(t => t.id === editingItemId ? task : t);
             } else {
                 tasks.unshift(task);
             }
 
-            cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
+            saveData(() => {
                 closeModal('taskModal');
                 renderItems();
-                document.getElementById('taskTitle').value = '';
-                document.getElementById('taskDescription').value = '';
                 updateCategoryCounts();
             });
         };
@@ -678,37 +760,25 @@
                 id: editingItemId || Date.now().toString(),
                 title,
                 content,
-                createdAt: Date.now()
+                createdAt: editingItemId ? 
+                    (notes.find(n => n.id === editingItemId)?.createdAt || Date.now()) : 
+                    Date.now()
             };
 
             if (editingItemId) {
-                notes = notes.map(n => n.id === editingItemId ? {...n, ...note} : n);
+                notes = notes.map(n => n.id === editingItemId ? note : n);
             } else {
                 notes.unshift(note);
             }
 
-            cloudStorage.set(`${userId}_notes`, JSON.stringify(notes), () => {
+            saveData(() => {
                 closeModal('noteModal');
                 renderItems();
-                document.getElementById('noteTitle').value = '';
-                document.getElementById('noteContent').value = '';
             });
-        };
-
-        // Toggle card actions
-        const toggleCardActions = (card, event) => {
-            event.stopPropagation();
-            vibrate();
-            // Hide actions on all other cards
-            document.querySelectorAll('.task-card, .note-card').forEach(c => {
-                if (c !== card) c.classList.remove('show-actions');
-            });
-            card.classList.toggle('show-actions');
         };
 
         // Task completion toggle
-        const toggleTaskComplete = (taskId, event) => {
-            event.stopPropagation();
+        const toggleTaskComplete = (taskId) => {
             vibrate();
             tasks = tasks.map(task => {
                 if (task.id === taskId) {
@@ -721,31 +791,30 @@
                 }
                 return task;
             });
-            cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
+            
+            saveData(() => {
                 renderItems();
                 updateCategoryCounts();
             });
         };
 
-        const deleteItem = (id, event) => {
-            event.stopPropagation();
+        const deleteItem = (id) => {
             vibrate();
             if (currentSection === 'tasks') {
                 tasks = tasks.filter(task => task.id !== id);
-                cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
-                    renderItems();
-                    updateCategoryCounts();
-                });
             } else {
                 notes = notes.filter(note => note.id !== id);
-                cloudStorage.set(`${userId}_notes`, JSON.stringify(notes), () => {
-                    renderItems();
-                });
             }
+            
+            saveData(() => {
+                renderItems();
+                if (currentSection === 'tasks') {
+                    updateCategoryCounts();
+                }
+            });
         };
 
-        const editItem = (id, event) => {
-            event.stopPropagation();
+        const editItem = (id) => {
             vibrate();
             editingItemId = id;
             
@@ -787,7 +856,7 @@
             if (currentSection === 'tasks') {
                 items = sortTasksByImportance(items);
                 
-                if (currentCategory && currentCategory !== 'all') {
+                if (currentCategory !== 'all') {
                     items = items.filter(task => task.category === currentCategory);
                 }
                 
@@ -809,7 +878,7 @@
 
             itemsContainer.innerHTML = items.map(item => {
                 const dateText = currentSection === 'tasks' && item.completed && item.completedAt ?
-                    `Создано: ${formatDate(item.createdAt)}<br>Выполнено: ${formatDate(item.completedAt)}` :
+                    `Создано: ${formatDate(item.createdAt)}\nВыполнено: ${formatDate(item.completedAt)}` :
                     `Создано: ${formatDate(item.createdAt)}`;
 
                 if (currentSection === 'tasks') {
@@ -822,13 +891,6 @@
                                 ${item.description ? `<p>${item.description}</p>` : ''}
                                 <div class="card-date">${dateText}</div>
                             </div>
-                            <div class="card-actions">
-                                <button class="action-button" onclick="toggleTaskComplete('${item.id}', event)">
-                                    ${item.completed ? '↺' : '✓'}
-                                </button>
-                                <button class="action-button" onclick="editItem('${item.id}', event)">✎</button>
-                                <button class="action-button" onclick="deleteItem('${item.id}', event)">×</button>
-                            </div>
                         </div>
                     `;
                 } else {
@@ -839,10 +901,6 @@
                                 <h3>${item.title}</h3>
                                 ${item.content ? `<p>${item.content}</p>` : ''}
                                 <div class="card-date">${dateText}</div>
-                            </div>
-                            <div class="card-actions">
-                                <button class="action-button" onclick="editItem('${item.id}', event)">✎</button>
-                                <button class="action-button" onclick="deleteItem('${item.id}', event)">×</button>
                             </div>
                         </div>
                     `;
@@ -864,6 +922,12 @@
                 if (currentSection === 'tasks') {
                     document.getElementById('taskTitle').value = '';
                     document.getElementById('taskDescription').value = '';
+                    
+                    // Set default category based on current selection
+                    if (currentCategory !== 'all') {
+                        document.getElementById('taskCategory').value = currentCategory;
+                    }
+                    
                     openModal('taskModal');
                 } else {
                     document.getElementById('noteTitle').value = '';
@@ -898,8 +962,18 @@
             });
 
             // Load initial data
-            loadData();
+            loadData(() => {
+                renderItems();
+                updateCategoryCounts();
+            });
         });
+
+        // Global functions for inline handlers
+        window.openFullView = openFullView;
+        window.closeFullView = closeFullView;
+        window.closeModal = closeModal;
+        window.saveTask = saveTask;
+        window.saveNote = saveNote;
     </script>
 </body>
 </html>
