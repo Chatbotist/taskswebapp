@@ -11,8 +11,13 @@
             --urgent-not-important: #FFD700;
             --not-urgent-not-important: #2196F3;
             --completed-task: #808080;
-            --background-color: #000000;
-            --text-color: #ffffff;
+            --background-color: var(--tg-theme-bg-color, #000000);
+            --text-color: var(--tg-theme-text-color, #ffffff);
+            --header-color: var(--tg-theme-header-bg-color, #1a1a1a);
+            --section-bg-color: var(--tg-theme-secondary-bg-color, #1a1a1a);
+            --button-color: var(--tg-theme-button-color, #2196F3);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --hint-color: var(--tg-theme-hint-color, #666666);
         }
 
         * {
@@ -20,6 +25,8 @@
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         body {
@@ -50,16 +57,29 @@
             align-items: center;
             height: 50vh;
             text-align: center;
-            color: #666;
+            color: var(--hint-color);
             font-size: 1.1em;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .categories-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 16px;
+            scrollbar-width: none;
+            display: none;
+        }
+
+        .categories-container::-webkit-scrollbar {
+            display: none;
         }
 
         .categories {
             display: flex;
-            flex-wrap: wrap;
             gap: 8px;
-            margin-bottom: 16px;
-            display: none;
+            padding-bottom: 4px;
+            width: max-content;
         }
 
         .category {
@@ -70,6 +90,7 @@
             color: white;
             cursor: pointer;
             white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .category.active {
@@ -93,8 +114,8 @@
             width: 56px;
             height: 56px;
             border-radius: 28px;
-            background: #2196F3;
-            color: white;
+            background: var(--button-color);
+            color: var(--button-text-color);
             border: none;
             font-size: 24px;
             cursor: pointer;
@@ -102,10 +123,11 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 100;
         }
 
         .task-card, .note-card {
-            background: #1a1a1a;
+            background: var(--section-bg-color);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
@@ -116,12 +138,39 @@
 
         .task-card.completed {
             opacity: 0.7;
-            background: #2a2a2a;
+        }
+
+        .task-card.completed .card-title {
+            text-decoration: line-through;
         }
 
         .card-content {
             margin-right: 0;
             word-break: break-word;
+        }
+
+        .card-title {
+            font-size: 16px;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .card-description {
+            font-size: 14px;
+            color: var(--hint-color);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .card-date {
+            font-size: 12px;
+            color: var(--hint-color);
         }
 
         .card-actions {
@@ -132,6 +181,7 @@
             display: none;
             flex-direction: column;
             gap: 8px;
+            z-index: 999;
         }
 
         .task-card.show-actions .card-content,
@@ -163,16 +213,17 @@
             left: 0;
             right: 0;
             height: 60px;
-            background: #1a1a1a;
+            background: var(--header-color);
             display: flex;
             justify-content: space-around;
             align-items: center;
-            border-top: 1px solid #333;
+            border-top: 1px solid var(--section-bg-color);
+            z-index: 100;
         }
 
         .nav-item {
             padding: 8px 16px;
-            color: white;
+            color: var(--text-color);
             text-decoration: none;
             opacity: 0.6;
             cursor: pointer;
@@ -180,7 +231,7 @@
 
         .nav-item.active {
             opacity: 1;
-            color: #2196F3;
+            color: var(--button-color);
         }
 
         .modal {
@@ -197,21 +248,47 @@
         }
 
         .modal-content {
-            background: #1a1a1a;
+            background: var(--section-bg-color);
             padding: 20px;
             border-radius: 12px;
             width: 90%;
             max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: var(--text-color);
+        }
+
+        .modal-text {
+            font-size: 16px;
+            color: var(--text-color);
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+        }
+
+        .modal-date {
+            font-size: 14px;
+            color: var(--hint-color);
+            margin-bottom: 16px;
         }
 
         .modal input, .modal textarea, .modal select {
             width: 100%;
             padding: 8px;
             margin: 8px 0;
-            background: #333;
-            border: none;
+            background: var(--background-color);
+            border: 1px solid var(--hint-color);
             border-radius: 8px;
-            color: white;
+            color: var(--text-color);
+        }
+
+        .modal textarea {
+            min-height: 100px;
+            resize: vertical;
         }
 
         .modal-buttons {
@@ -226,11 +303,25 @@
             border-radius: 8px;
             border: none;
             cursor: pointer;
+            background: var(--button-color);
+            color: var(--button-text-color);
+        }
+
+        .modal-back-button {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1001;
         }
 
         .show-completed {
-            background: #333;
-            color: white;
+            background: var(--section-bg-color);
+            color: var(--text-color);
             border: none;
             padding: 8px 16px;
             border-radius: 20px;
@@ -239,56 +330,73 @@
             display: none;
         }
 
+        .full-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--background-color);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .full-view-content {
+            margin-top: 40px;
+        }
+
+        .full-view-title {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: var(--text-color);
+        }
+
+        .full-view-text {
+            font-size: 16px;
+            color: var(--text-color);
+            margin-bottom: 16px;
+            white-space: pre-wrap;
+        }
+
+        .full-view-date {
+            font-size: 14px;
+            color: var(--hint-color);
+            margin-bottom: 16px;
+        }
+
+        .full-view-back {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+
         @media (max-width: 380px) {
             .category {
                 padding: 6px 12px;
                 font-size: 12px;
             }
         }
-
-        [data-theme="light"] {
-            --background-color: #ffffff;
-            --text-color: #000000;
-        }
-
-        [data-theme="light"] .task-card,
-        [data-theme="light"] .note-card {
-            background: #f5f5f5;
-        }
-
-        [data-theme="light"] .task-card.completed {
-            background: #e0e0e0;
-        }
-
-        [data-theme="light"] .bottom-nav {
-            background: #f5f5f5;
-            border-top-color: #ddd;
-        }
-
-        [data-theme="light"] .nav-item {
-            color: #000000;
-        }
-
-        [data-theme="light"] .modal-content {
-            background: #ffffff;
-        }
-
-        [data-theme="light"] .modal input,
-        [data-theme="light"] .modal textarea,
-        [data-theme="light"] .modal select {
-            background: #f5f5f5;
-            color: #000000;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="content">
-            <div class="categories">
-                <button class="category" style="background: var(--urgent-important)">Срочно, важно</button>
-                <button class="category" style="background: var(--not-urgent-important)">Не срочно, важно</button>
-                <button class="category" style="background: var(--urgent-not-important)">Срочно, не важно</button>
-                <button class="category" style="background: var(--not-urgent-not-important)">Не срочно, не важно</button>
+            <div class="categories-container">
+                <div class="categories">
+                    <button class="category active" style="background: var(--button-color)" data-category="all">Все задачи</button>
+                    <button class="category" style="background: var(--urgent-important)" data-category="urgent-important">Срочно, важно</button>
+                    <button class="category" style="background: var(--not-urgent-important)" data-category="not-urgent-important">Не срочно, важно</button>
+                    <button class="category" style="background: var(--urgent-not-important)" data-category="urgent-not-important">Срочно, не важно</button>
+                    <button class="category" style="background: var(--not-urgent-not-important)" data-category="not-urgent-not-important">Не срочно, не важно</button>
+                </div>
             </div>
             <button class="show-completed">Показать выполненные задачи</button>
             <div id="items-container"></div>
@@ -302,8 +410,8 @@
 
     <div class="modal" id="taskModal">
         <div class="modal-content">
-            <input type="text" id="taskTitle" placeholder="Название задачи" required>
-            <textarea id="taskDescription" placeholder="Описание (необязательно)" rows="3"></textarea>
+            <input type="text" id="taskTitle" placeholder="Название задачи" maxlength="30" required>
+            <textarea id="taskDescription" placeholder="Описание (необязательно)" rows="3" maxlength="100"></textarea>
             <select id="taskCategory">
                 <option value="urgent-important">Срочно, важно</option>
                 <option value="not-urgent-important">Не срочно, важно</option>
@@ -319,8 +427,8 @@
 
     <div class="modal" id="noteModal">
         <div class="modal-content">
-            <input type="text" id="noteTitle" placeholder="Заголовок" required>
-            <textarea id="noteContent" placeholder="Содержание (необязательно)" rows="3"></textarea>
+            <input type="text" id="noteTitle" placeholder="Заголовок" maxlength="30" required>
+            <textarea id="noteContent" placeholder="Содержание (необязательно)" rows="3" maxlength="100"></textarea>
             <div class="modal-buttons">
                 <button class="modal-button" onclick="closeModal('noteModal')">Отмена</button>
                 <button class="modal-button" onclick="saveNote()">Сохранить</button>
@@ -328,67 +436,440 @@
         </div>
     </div>
 
+    <div class="full-view" id="fullView">
+        <button class="full-view-back" onclick="closeFullView()">←</button>
+        <div class="full-view-content">
+            <h1 class="full-view-title" id="fullViewTitle"></h1>
+            <p class="full-view-text" id="fullViewText"></p>
+            <p class="full-view-date" id="fullViewDate"></p>
+        </div>
+    </div>
+
     <script>
         // Telegram WebApp initialization
         if (window.Telegram && window.Telegram.WebApp) {
             const { WebApp } = window.Telegram;
-            WebApp.setBackgroundColor("#000000");
-            WebApp.setHeaderColor("#000000");
             WebApp.expand();
             WebApp.enableClosingConfirmation();
             WebApp.disableVerticalSwipes();
             WebApp.lockOrientation?.('portrait');
-
+            
             // Set theme based on Telegram theme
             document.body.setAttribute('data-theme', WebApp.colorScheme);
-            if (WebApp.colorScheme === 'light') {
-                WebApp.setBackgroundColor("#ffffff");
-                WebApp.setHeaderColor("#ffffff");
-            }
+            WebApp.setBackgroundColor(WebApp.colorScheme === 'light' ? '#ffffff' : '#000000');
+            WebApp.setHeaderColor(WebApp.colorScheme === 'light' ? '#ffffff' : '#1a1a1a');
         }
 
         // State management
         let currentSection = 'tasks';
         let showCompleted = false;
-        let currentCategory = null;
+        let currentCategory = 'all';
         let editingItemId = null;
         
-        // Get user identifier
-        const getUserId = () => {
-            if (window.Telegram?.WebApp) {
-                return `tg_${window.Telegram.WebApp.initDataUnsafe?.user?.id}`;
-            }
-            let deviceId = localStorage.getItem('device_id');
-            if (!deviceId) {
-                deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                localStorage.setItem('device_id', deviceId);
-            }
-            return deviceId;
-        };
-
-        const userId = getUserId();
-
-        // LocalStorage wrapper with user isolation
-        const storage = {
-            get: (key) => {
-                const data = localStorage.getItem(`${userId}_${key}`);
-                return data ? JSON.parse(data) : null;
+        // Cloud Storage wrapper
+        const cloudStorage = {
+            get: (key, callback) => {
+                if (window.Telegram?.WebApp?.CloudStorage) {
+                    window.Telegram.WebApp.CloudStorage.getItem(key, (err, value) => {
+                        if (err) {
+                            console.error('CloudStorage getItem error:', err);
+                            callback(null);
+                        } else {
+                            callback(value ? JSON.parse(value) : null);
+                        }
+                    });
+                } else {
+                    callback(null);
+                }
             },
-            set: (key, value) => {
-                localStorage.setItem(`${userId}_${key}`, JSON.stringify(value));
+            set: (key, value, callback) => {
+                if (window.Telegram?.WebApp?.CloudStorage) {
+                    window.Telegram.WebApp.CloudStorage.setItem(key, JSON.stringify(value), (err, success) => {
+                        if (err) {
+                            console.error('CloudStorage setItem error:', err);
+                            if (callback) callback(false);
+                        } else {
+                            if (callback) callback(success);
+                        }
+                    });
+                } else {
+                    if (callback) callback(false);
+                }
+            },
+            remove: (key, callback) => {
+                if (window.Telegram?.WebApp?.CloudStorage) {
+                    window.Telegram.WebApp.CloudStorage.removeItem(key, (err, success) => {
+                        if (err) {
+                            console.error('CloudStorage removeItem error:', err);
+                            if (callback) callback(false);
+                        } else {
+                            if (callback) callback(success);
+                        }
+                    });
+                } else {
+                    if (callback) callback(false);
+                }
             }
         };
 
         // Initialize data
-        let tasks = storage.get('tasks') || [];
-        let notes = storage.get('notes') || [];
+        let tasks = [];
+        let notes = [];
+
+        // Load data from CloudStorage
+        const loadData = () => {
+            cloudStorage.get('tasks', (data) => {
+                tasks = data || [];
+                cloudStorage.get('notes', (data) => {
+                    notes = data || [];
+                    renderItems();
+                    updateCategoryCounts();
+                });
+            });
+        };
 
         // UI Elements
-        const categoriesContainer = document.querySelector('.categories');
+        const categoriesContainer = document.querySelector('.categories-container');
+        const categories = document.querySelector('.categories');
         const showCompletedButton = document.querySelector('.show-completed');
         const itemsContainer = document.getElementById('items-container');
         const addButton = document.querySelector('.add-button');
         const navItems = document.querySelectorAll('.nav-item');
+
+        // Format date
+        const formatDate = (timestamp) => {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        };
+
+        // Get task count by category
+        const getTaskCount = (category) => {
+            if (category === 'all') return tasks.filter(task => !task.completed).length;
+            return tasks.filter(task => task.category === category && !task.completed).length;
+        };
+
+        // Update category counts
+        const updateCategoryCounts = () => {
+            document.querySelectorAll('.category').forEach(cat => {
+                const category = cat.dataset.category;
+                const count = getTaskCount(category);
+                const text = cat.textContent.split('(')[0].trim();
+                cat.textContent = `${text} (${count})`;
+            });
+        };
+
+        // Vibration function
+        const vibrate = () => {
+            if (window.Telegram?.WebApp) {
+                window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            } else if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+        };
+
+        // Touch handling for swipe between sections
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].clientX;
+            handleSwipe();
+        });
+
+        const handleSwipe = () => {
+            const swipeDistance = touchEndX - touchStartX;
+            if (Math.abs(swipeDistance) > 50) {
+                if (swipeDistance > 0 && currentSection === 'notes') {
+                    switchSection('tasks');
+                } else if (swipeDistance < 0 && currentSection === 'tasks') {
+                    switchSection('notes');
+                }
+            }
+        };
+
+        // Section switching
+        const switchSection = (section) => {
+            currentSection = section;
+            navItems.forEach(item => {
+                item.classList.toggle('active', item.dataset.section === section);
+            });
+            categoriesContainer.style.display = section === 'tasks' ? 'block' : 'none';
+            showCompletedButton.style.display = section === 'tasks' ? 'block' : 'none';
+            renderItems();
+        };
+
+        // Modal handling
+        const openModal = (modalId) => {
+            vibrate();
+            document.getElementById(modalId).style.display = 'flex';
+        };
+
+        const closeModal = (modalId) => {
+            vibrate();
+            document.getElementById(modalId).style.display = 'none';
+            editingItemId = null;
+        };
+
+        // Full view handling
+        const openFullView = (item) => {
+            vibrate();
+            document.getElementById('fullViewTitle').textContent = item.title;
+            document.getElementById('fullViewText').textContent = item.description || item.content || '';
+            
+            let dateText = `Создано: ${formatDate(item.createdAt)}`;
+            if (item.completed && item.completedAt) {
+                dateText += `\nВыполнено: ${formatDate(item.completedAt)}`;
+            }
+            document.getElementById('fullViewDate').textContent = dateText;
+            
+            document.getElementById('fullView').style.display = 'block';
+        };
+
+        const closeFullView = () => {
+            vibrate();
+            document.getElementById('fullView').style.display = 'none';
+        };
+
+        // Item management
+        const saveTask = () => {
+            vibrate();
+            const title = document.getElementById('taskTitle').value.trim();
+            const description = document.getElementById('taskDescription').value.trim();
+            const category = document.getElementById('taskCategory').value;
+
+            if (!title) return;
+
+            const task = {
+                id: editingItemId || Date.now().toString(),
+                title,
+                description,
+                category,
+                completed: false,
+                createdAt: Date.now()
+            };
+
+            if (editingItemId) {
+                const existingTask = tasks.find(t => t.id === editingItemId);
+                if (existingTask) {
+                    task.completed = existingTask.completed;
+                    task.completedAt = existingTask.completedAt;
+                }
+                tasks = tasks.map(t => t.id === editingItemId ? task : t);
+            } else {
+                tasks.unshift(task);
+            }
+
+            cloudStorage.set('tasks', tasks, (success) => {
+                if (success) {
+                    closeModal('taskModal');
+                    renderItems();
+                    document.getElementById('taskTitle').value = '';
+                    document.getElementById('taskDescription').value = '';
+                    updateCategoryCounts();
+                }
+            });
+        };
+
+        const saveNote = () => {
+            vibrate();
+            const title = document.getElementById('noteTitle').value.trim();
+            const content = document.getElementById('noteContent').value.trim();
+
+            if (!title) return;
+
+            const note = {
+                id: editingItemId || Date.now().toString(),
+                title,
+                content,
+                createdAt: Date.now()
+            };
+
+            if (editingItemId) {
+                notes = notes.map(n => n.id === editingItemId ? note : n);
+            } else {
+                notes.unshift(note);
+            }
+
+            cloudStorage.set('notes', notes, (success) => {
+                if (success) {
+                    closeModal('noteModal');
+                    renderItems();
+                    document.getElementById('noteTitle').value = '';
+                    document.getElementById('noteContent').value = '';
+                }
+            });
+        };
+
+        // Toggle card actions
+        const toggleCardActions = (card, event) => {
+            event.stopPropagation();
+            vibrate();
+            // Hide actions on all other cards
+            document.querySelectorAll('.task-card, .note-card').forEach(c => {
+                if (c !== card) c.classList.remove('show-actions');
+            });
+            card.classList.toggle('show-actions');
+        };
+
+        // Task completion toggle
+        const toggleTaskComplete = (taskId, event) => {
+            event.stopPropagation();
+            vibrate();
+            tasks = tasks.map(task => {
+                if (task.id === taskId) {
+                    const completed = !task.completed;
+                    return {
+                        ...task,
+                        completed,
+                        completedAt: completed ? Date.now() : undefined
+                    };
+                }
+                return task;
+            });
+            cloudStorage.set('tasks', tasks, (success) => {
+                if (success) {
+                    renderItems();
+                    updateCategoryCounts();
+                }
+            });
+        };
+
+        const deleteItem = (id, event) => {
+            event.stopPropagation();
+            vibrate();
+            if (currentSection === 'tasks') {
+                tasks = tasks.filter(task => task.id !== id);
+                cloudStorage.set('tasks', tasks, (success) => {
+                    if (success) {
+                        updateCategoryCounts();
+                        renderItems();
+                    }
+                });
+            } else {
+                notes = notes.filter(note => note.id !== id);
+                cloudStorage.set('notes', notes, (success) => {
+                    if (success) {
+                        renderItems();
+                    }
+                });
+            }
+        };
+
+        const editItem = (id, event) => {
+            event.stopPropagation();
+            vibrate();
+            editingItemId = id;
+            
+            if (currentSection === 'tasks') {
+                const task = tasks.find(t => t.id === id);
+                document.getElementById('taskTitle').value = task.title;
+                document.getElementById('taskDescription').value = task.description;
+                document.getElementById('taskCategory').value = task.category;
+                openModal('taskModal');
+            } else {
+                const note = notes.find(n => n.id === id);
+                document.getElementById('noteTitle').value = note.title;
+                document.getElementById('noteContent').value = note.content;
+                openModal('noteModal');
+            }
+        };
+
+        // Hide card actions when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.task-card, .note-card, .action-button')) {
+                document.querySelectorAll('.task-card, .note-card').forEach(card => {
+                    card.classList.remove('show-actions');
+                });
+            }
+        });
+
+        // Sort tasks by priority
+        const sortTasksByPriority = (tasks) => {
+            const priorityOrder = {
+                'urgent-important': 0,
+                'not-urgent-important': 1,
+                'urgent-not-important': 2,
+                'not-urgent-not-important': 3
+            };
+            
+            return [...tasks].sort((a, b) => {
+                if (a.completed !== b.completed) {
+                    return a.completed ? 1 : -1;
+                }
+                return priorityOrder[a.category] - priorityOrder[b.category];
+            });
+        };
+
+        // Rendering
+        const renderItems = () => {
+            let items = currentSection === 'tasks' ? [...tasks] : [...notes];
+            
+            if (currentSection === 'tasks') {
+                items = sortTasksByPriority(items);
+                
+                if (currentCategory !== 'all') {
+                    items = items.filter(task => task.category === currentCategory);
+                }
+                
+                const completedTasks = items.filter(task => task.completed);
+                const incompleteTasks = items.filter(task => !task.completed);
+                items = showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
+            }
+
+            if (items.length === 0) {
+                itemsContainer.innerHTML = `
+                    <div class="empty-state">
+                        ${currentSection === 'tasks' ? 
+                            (currentCategory === 'all' ? 'Нет задач' : 'Нет задач в этой категории') : 
+                            'Нет заметок'}
+                    </div>
+                `;
+                return;
+            }
+
+            itemsContainer.innerHTML = items.map(item => {
+                if (currentSection === 'tasks') {
+                    return `
+                        <div class="task-card ${item.completed ? 'completed' : ''}" 
+                             style="border-left: 4px solid var(--${item.category})"
+                             onclick="openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            <div class="card-content">
+                                <h3 class="card-title">${item.title}</h3>
+                                ${item.description ? `<p class="card-description">${item.description}</p>` : ''}
+                                <p class="card-date">Создано: ${formatDate(item.createdAt)}</p>
+                                ${item.completed && item.completedAt ? `<p class="card-date">Выполнено: ${formatDate(item.completedAt)}</p>` : ''}
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-button" onclick="toggleTaskComplete('${item.id}', event)">
+                                    ${item.completed ? '↺' : '✓'}
+                                </button>
+                                <button class="action-button" onclick="editItem('${item.id}', event)">✎</button>
+                                <button class="action-button" onclick="deleteItem('${item.id}', event)">×</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="note-card"
+                             onclick="openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            <div class="card-content">
+                                <h3 class="card-title">${item.title}</h3>
+                                ${item.content ? `<p class="card-description">${item.content}</p>` : ''}
+                                <p class="card-date">Создано: ${formatDate(item.createdAt)}</p>
+                            </div>
+                            <div class="card-actions">
+                                <button class="action-button" onclick="editItem('${item.id}', event)">✎</button>
+                                <button class="action-button" onclick="deleteItem('${item.id}', event)">×</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }).join('');
+        };
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
@@ -427,334 +908,16 @@
             document.querySelectorAll('.category').forEach(cat => {
                 cat.addEventListener('click', () => {
                     vibrate();
-                    const categoryValue = cat.textContent.split('(')[0].trim();
-                    currentCategory = 
-                        categoryValue === 'Срочно, важно' ? 'urgent-important' :
-                        categoryValue === 'Не срочно, важно' ? 'not-urgent-important' :
-                        categoryValue === 'Срочно, не важно' ? 'urgent-not-important' :
-                        'not-urgent-not-important';
-                    
+                    currentCategory = cat.dataset.category;
                     document.querySelectorAll('.category').forEach(c => c.classList.remove('active'));
                     cat.classList.add('active');
                     renderItems();
                 });
             });
 
-            // Initial render
-            switchSection('tasks');
-            updateCategoryCounts();
+            // Load initial data
+            loadData();
         });
-
-        // Get task count by category
-        const getTaskCount = (category) => {
-            return tasks.filter(task => task.category === category && !task.completed).length;
-        };
-
-        // Update category counts
-        const updateCategoryCounts = () => {
-            const categories = document.querySelectorAll('.category');
-            categories.forEach(cat => {
-                const categoryValue = cat.textContent.split('(')[0].trim();
-                const count = getTaskCount(
-                    categoryValue === 'Срочно, важно' ? 'urgent-important' :
-                    categoryValue === 'Не срочно, важно' ? 'not-urgent-important' :
-                    categoryValue === 'Срочно, не важно' ? 'urgent-not-important' :
-                    'not-urgent-not-important'
-                );
-                cat.textContent = `${categoryValue} (${count})`;
-            });
-        };
-
-        // Vibration function
-        const vibrate = () => {
-            if (window.Telegram?.WebApp) {
-                window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-            } else if (navigator.vibrate) {
-                navigator.vibrate(50);
-            }
-        };
-
-        // Touch handling for swipe between sections
-        let touchStartX = 0;
-        let touchEndX = 0;
-
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-        });
-
-        document.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].clientX;
-            handleSwipe();
-        });
-
-        const handleSwipe = () => {
-            const swipeDistance = touchEndX - touchStartX;
-            if (Math.abs(swipeDistance) > 50) {
-                if (swipeDistance > 0 && currentSection === 'notes') {
-                    switchSection('tasks');
-                } else if (swipeDistance < 0 && currentSection === 'tasks') {
-                    switchSection('notes');
-                }
-            }
-        };
-
-        // Drag and Drop functionality
-        let draggedItem = null;
-        let dragStartY = 0;
-        let originalPosition = 0;
-
-        const handleDragStart = (e, item) => {
-            draggedItem = item;
-            const card = e.target.closest('.task-card, .note-card');
-            dragStartY = e.touches[0].clientY;
-            originalPosition = Array.from(itemsContainer.children).indexOf(card);
-            card.style.opacity = '0.5';
-        };
-
-        const handleDragMove = (e) => {
-            if (!draggedItem) return;
-            
-            const card = e.target.closest('.task-card, .note-card');
-            const currentY = e.touches[0].clientY;
-            const deltaY = currentY - dragStartY;
-            
-            card.style.transform = `translateY(${deltaY}px)`;
-            
-            const cards = Array.from(itemsContainer.children);
-            const cardHeight = card.offsetHeight;
-            const newPosition = Math.round(deltaY / cardHeight) + originalPosition;
-            
-            if (newPosition >= 0 && newPosition < cards.length) {
-                const items = currentSection === 'tasks' ? tasks : notes;
-                const item = items[originalPosition];
-                items.splice(originalPosition, 1);
-                items.splice(newPosition, 0, item);
-                storage.set(currentSection, items);
-                renderItems();
-            }
-        };
-
-        const handleDragEnd = (e) => {
-            if (!draggedItem) return;
-            
-            const card = e.target.closest('.task-card, .note-card');
-            card.style.opacity = '1';
-            card.style.transform = '';
-            draggedItem = null;
-        };
-
-        // Section switching
-        const switchSection = (section) => {
-            currentSection = section;
-            navItems.forEach(item => {
-                item.classList.toggle('active', item.dataset.section === section);
-            });
-            categoriesContainer.style.display = section === 'tasks' ? 'flex' : 'none';
-            showCompletedButton.style.display = section === 'tasks' ? 'block' : 'none';
-            renderItems();
-        };
-
-        // Modal handling
-        const openModal = (modalId) => {
-            vibrate();
-            document.getElementById(modalId).style.display = 'flex';
-        };
-
-        const closeModal = (modalId) => {
-            vibrate();
-            document.getElementById(modalId).style.display = 'none';
-            editingItemId = null;
-        };
-
-        // Item management
-        const saveTask = () => {
-            vibrate();
-            const title = document.getElementById('taskTitle').value.trim();
-            const description = document.getElementById('taskDescription').value.trim();
-            const category = document.getElementById('taskCategory').value;
-
-            if (!title) return;
-
-            const task = {
-                id: editingItemId || Date.now().toString(),
-                title,
-                description,
-                category,
-                completed: false,
-                createdAt: Date.now()
-            };
-
-            if (editingItemId) {
-                tasks = tasks.map(t => t.id === editingItemId ? {...t, ...task} : t);
-            } else {
-                tasks.unshift(task);
-            }
-
-            storage.set('tasks', tasks);
-            closeModal('taskModal');
-            renderItems();
-            document.getElementById('taskTitle').value = '';
-            document.getElementById('taskDescription').value = '';
-            updateCategoryCounts();
-        };
-
-        const saveNote = () => {
-            vibrate();
-            const title = document.getElementById('noteTitle').value.trim();
-            const content = document.getElementById('noteContent').value.trim();
-
-            if (!title) return;
-
-            const note = {
-                id: editingItemId || Date.now().toString(),
-                title,
-                content,
-                createdAt: Date.now()
-            };
-
-            if (editingItemId) {
-                notes = notes.map(n => n.id === editingItemId ? {...n, ...note} : n);
-            } else {
-                notes.unshift(note);
-            }
-
-            storage.set('notes', notes);
-            closeModal('noteModal');
-            renderItems();
-            document.getElementById('noteTitle').value = '';
-            document.getElementById('noteContent').value = '';
-        };
-
-        // Toggle card actions
-        const toggleCardActions = (card) => {
-            // Hide actions on all other cards
-            document.querySelectorAll('.task-card, .note-card').forEach(c => {
-                if (c !== card) c.classList.remove('show-actions');
-            });
-            card.classList.toggle('show-actions');
-        };
-
-        // Updated event handlers to prevent event propagation
-        const toggleTaskComplete = (taskId, event) => {
-            event.stopPropagation();
-            vibrate();
-            tasks = tasks.map(task => {
-                if (task.id === taskId) {
-                    return {...task, completed: !task.completed};
-                }
-                return task;
-            });
-            storage.set('tasks', tasks);
-            renderItems();
-            updateCategoryCounts();
-        };
-
-        const deleteItem = (id, event) => {
-            event.stopPropagation();
-            vibrate();
-            if (currentSection === 'tasks') {
-                tasks = tasks.filter(task => task.id !== id);
-                storage.set('tasks', tasks);
-                updateCategoryCounts();
-            } else {
-                notes = notes.filter(note => note.id !== id);
-                storage.set('notes', notes);
-            }
-            renderItems();
-        };
-
-        const editItem = (id, event) => {
-            event.stopPropagation();
-            vibrate();
-            editingItemId = id;
-            
-            if (currentSection === 'tasks') {
-                const task = tasks.find(t => t.id === id);
-                document.getElementById('taskTitle').value = task.title;
-                document.getElementById('taskDescription').value = task.description;
-                document.getElementById('taskCategory').value = task.category;
-                openModal('taskModal');
-            } else {
-                const note = notes.find(n => n.id === id);
-                document.getElementById('noteTitle').value = note.title;
-                document.getElementById('noteContent').value = note.content;
-                openModal('noteModal');
-            }
-        };
-
-        // Hide card actions when clicking outside
-        document.addEventListener('click', (event) => {
-            if (!event.target.closest('.task-card, .note-card')) {
-                document.querySelectorAll('.task-card, .note-card').forEach(card => {
-                    card.classList.remove('show-actions');
-                });
-            }
-        });
-
-        // Rendering
-        const renderItems = () => {
-            let items = currentSection === 'tasks' ? tasks : notes;
-            
-            if (items.length === 0) {
-                itemsContainer.innerHTML = `
-                    <div class="empty-state">
-                        ${currentSection === 'tasks' ? 'Нет задач' : 'Нет заметок'}
-                    </div>
-                `;
-                return;
-            }
-
-            if (currentSection === 'tasks') {
-                if (currentCategory) {
-                    items = items.filter(task => task.category === currentCategory);
-                }
-                const completedTasks = items.filter(task => task.completed);
-                const incompleteTasks = items.filter(task => !task.completed);
-                items = showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
-            }
-
-            itemsContainer.innerHTML = items.map(item => {
-                if (currentSection === 'tasks') {
-                    return `
-                        <div class="task-card ${item.completed ? 'completed' : ''}" 
-                             style="border-left: 4px solid var(--${item.category})"
-                             onclick="toggleCardActions(this)"
-                             ontouchstart="handleDragStart(event, '${item.id}')"
-                             ontouchmove="handleDragMove(event)"
-                             ontouchend="handleDragEnd(event)">
-                            <div class="card-content">
-                                <h3>${item.title}</h3>
-                                ${item.description ? `<p>${item.description}</p>` : ''}
-                            </div>
-                            <div class="card-actions">
-                                <button class="action-button" onclick="toggleTaskComplete('${item.id}', event)">
-                                    ${item.completed ? '↺' : '✓'}
-                                </button>
-                                <button class="action-button" onclick="editItem('${item.id}', event)">✎</button>
-                                <button class="action-button" onclick="deleteItem('${item.id}', event)">×</button>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    return `
-                        <div class="note-card"
-                             onclick="toggleCardActions(this)"
-                             ontouchstart="handleDragStart(event, '${item.id}')"
-                             ontouchmove="handleDragMove(event)"
-                             ontouchend="handleDragEnd(event)">
-                            <div class="card-content">
-                                <h3>${item.title}</h3>
-                                ${item.content ? `<p>${item.content}</p>` : ''}
-                            </div>
-                            <div class="card-actions">
-                                <button class="action-button" onclick="editItem('${item.id}', event)">✎</button>
-                                <button class="action-button" onclick="deleteItem('${item.id}', event)">×</button>
-                            </div>
-                        </div>
-                    `;
-                }
-            }).join('');
-        };
     </script>
 </body>
 </html>
