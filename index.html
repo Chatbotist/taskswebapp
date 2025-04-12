@@ -4,20 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tasks & Notes</title>
+    <script src="https://telegram.org/js/telegram-web-app.js?57"></script>
     <style>
         :root {
             --urgent-important: #ff4444;
             --not-urgent-important: #4CAF50;
             --urgent-not-important: #FFD700;
             --not-urgent-not-important: #2196F3;
+            --all-tasks: #808080;
             --completed-task: #808080;
-            --background-color: var(--tg-theme-bg-color, #000000);
-            --text-color: var(--tg-theme-text-color, #ffffff);
-            --header-color: var(--tg-theme-header-bg-color, #1a1a1a);
-            --section-bg-color: var(--tg-theme-secondary-bg-color, #1a1a1a);
-            --button-color: var(--tg-theme-button-color, #2196F3);
-            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
-            --hint-color: var(--tg-theme-hint-color, #666666);
+            --background-color: #000000;
+            --text-color: #ffffff;
         }
 
         * {
@@ -25,7 +22,6 @@
             padding: 0;
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
-            -webkit-user-select: none;
             user-select: none;
         }
 
@@ -57,9 +53,8 @@
             align-items: center;
             height: 50vh;
             text-align: center;
-            color: var(--hint-color);
+            color: #666;
             font-size: 1.1em;
-            -webkit-user-select: none;
             user-select: none;
         }
 
@@ -67,8 +62,8 @@
             width: 100%;
             overflow-x: auto;
             margin-bottom: 16px;
-            scrollbar-width: none;
             display: none;
+            scrollbar-width: none;
         }
 
         .categories-container::-webkit-scrollbar {
@@ -79,7 +74,6 @@
             display: flex;
             gap: 8px;
             padding-bottom: 4px;
-            width: max-content;
         }
 
         .category {
@@ -114,8 +108,8 @@
             width: 56px;
             height: 56px;
             border-radius: 28px;
-            background: var(--button-color);
-            color: var(--button-text-color);
+            background: #2196F3;
+            color: white;
             border: none;
             font-size: 24px;
             cursor: pointer;
@@ -123,11 +117,11 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-            z-index: 100;
+            z-index: 998;
         }
 
         .task-card, .note-card {
-            background: var(--section-bg-color);
+            background: #1a1a1a;
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
@@ -138,39 +132,39 @@
 
         .task-card.completed {
             opacity: 0.7;
+            background: #2a2a2a;
         }
 
-        .task-card.completed .card-title {
+        .task-card.completed .card-content h3,
+        .task-card.completed .card-content p {
             text-decoration: line-through;
         }
 
         .card-content {
             margin-right: 0;
             word-break: break-word;
-        }
-
-        .card-title {
-            font-size: 16px;
-            margin-bottom: 4px;
-            display: -webkit-box;
-            -webkit-line-clamp: 1;
-            -webkit-box-orient: vertical;
             overflow: hidden;
         }
 
-        .card-description {
-            font-size: 14px;
-            color: var(--hint-color);
+        .card-content h3 {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 80%;
+        }
+
+        .card-content p {
             display: -webkit-box;
-            -webkit-line-clamp: 2;
+            -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            margin-bottom: 8px;
+            margin-top: 8px;
         }
 
         .card-date {
             font-size: 12px;
-            color: var(--hint-color);
+            color: #666;
+            margin-top: 8px;
         }
 
         .card-actions {
@@ -213,17 +207,17 @@
             left: 0;
             right: 0;
             height: 60px;
-            background: var(--header-color);
+            background: #1a1a1a;
             display: flex;
             justify-content: space-around;
             align-items: center;
-            border-top: 1px solid var(--section-bg-color);
-            z-index: 100;
+            border-top: 1px solid #333;
+            z-index: 997;
         }
 
         .nav-item {
             padding: 8px 16px;
-            color: var(--text-color);
+            color: white;
             text-decoration: none;
             opacity: 0.6;
             cursor: pointer;
@@ -231,7 +225,7 @@
 
         .nav-item.active {
             opacity: 1;
-            color: var(--button-color);
+            color: #2196F3;
         }
 
         .modal {
@@ -248,7 +242,7 @@
         }
 
         .modal-content {
-            background: var(--section-bg-color);
+            background: #1a1a1a;
             padding: 20px;
             border-radius: 12px;
             width: 90%;
@@ -257,38 +251,14 @@
             overflow-y: auto;
         }
 
-        .modal-title {
-            font-size: 18px;
-            margin-bottom: 16px;
-            color: var(--text-color);
-        }
-
-        .modal-text {
-            font-size: 16px;
-            color: var(--text-color);
-            margin-bottom: 16px;
-            white-space: pre-wrap;
-        }
-
-        .modal-date {
-            font-size: 14px;
-            color: var(--hint-color);
-            margin-bottom: 16px;
-        }
-
         .modal input, .modal textarea, .modal select {
             width: 100%;
             padding: 8px;
             margin: 8px 0;
-            background: var(--background-color);
-            border: 1px solid var(--hint-color);
+            background: #333;
+            border: none;
             border-radius: 8px;
-            color: var(--text-color);
-        }
-
-        .modal textarea {
-            min-height: 100px;
-            resize: vertical;
+            color: white;
         }
 
         .modal-buttons {
@@ -303,25 +273,11 @@
             border-radius: 8px;
             border: none;
             cursor: pointer;
-            background: var(--button-color);
-            color: var(--button-text-color);
-        }
-
-        .modal-back-button {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            background: none;
-            border: none;
-            color: var(--text-color);
-            font-size: 24px;
-            cursor: pointer;
-            z-index: 1001;
         }
 
         .show-completed {
-            background: var(--section-bg-color);
-            color: var(--text-color);
+            background: #333;
+            color: white;
             border: none;
             padding: 8px 16px;
             border-radius: 20px;
@@ -338,44 +294,43 @@
             bottom: 0;
             background: var(--background-color);
             padding: 20px;
+            z-index: 1001;
             overflow-y: auto;
-            z-index: 1000;
             display: none;
         }
 
-        .full-view-content {
-            margin-top: 40px;
-        }
-
-        .full-view-title {
-            font-size: 24px;
+        .full-view h2 {
             margin-bottom: 16px;
-            color: var(--text-color);
+            word-break: break-word;
         }
 
-        .full-view-text {
-            font-size: 16px;
-            color: var(--text-color);
-            margin-bottom: 16px;
-            white-space: pre-wrap;
+        .full-view p {
+            margin-bottom: 8px;
+            word-break: break-word;
         }
 
-        .full-view-date {
+        .full-view .date {
+            color: #666;
             font-size: 14px;
-            color: var(--hint-color);
             margin-bottom: 16px;
         }
 
-        .full-view-back {
+        .full-view .back-button {
             position: fixed;
-            top: 16px;
-            left: 16px;
-            background: none;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 20px;
+            background: #333;
+            color: white;
             border: none;
-            color: var(--text-color);
-            font-size: 24px;
+            font-size: 20px;
             cursor: pointer;
-            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1002;
         }
 
         @media (max-width: 380px) {
@@ -384,6 +339,44 @@
                 font-size: 12px;
             }
         }
+
+        [data-theme="light"] {
+            --background-color: #ffffff;
+            --text-color: #000000;
+        }
+
+        [data-theme="light"] .task-card,
+        [data-theme="light"] .note-card {
+            background: #f5f5f5;
+        }
+
+        [data-theme="light"] .task-card.completed {
+            background: #e0e0e0;
+        }
+
+        [data-theme="light"] .bottom-nav {
+            background: #f5f5f5;
+            border-top-color: #ddd;
+        }
+
+        [data-theme="light"] .nav-item {
+            color: #000000;
+        }
+
+        [data-theme="light"] .modal-content {
+            background: #ffffff;
+        }
+
+        [data-theme="light"] .modal input,
+        [data-theme="light"] .modal textarea,
+        [data-theme="light"] .modal select {
+            background: #f5f5f5;
+            color: #000000;
+        }
+
+        [data-theme="light"] .full-view {
+            background: var(--background-color);
+        }
     </style>
 </head>
 <body>
@@ -391,11 +384,11 @@
         <div class="content">
             <div class="categories-container">
                 <div class="categories">
-                    <button class="category active" style="background: var(--button-color)" data-category="all">Все задачи</button>
-                    <button class="category" style="background: var(--urgent-important)" data-category="urgent-important">Срочно, важно</button>
-                    <button class="category" style="background: var(--not-urgent-important)" data-category="not-urgent-important">Не срочно, важно</button>
-                    <button class="category" style="background: var(--urgent-not-important)" data-category="urgent-not-important">Срочно, не важно</button>
-                    <button class="category" style="background: var(--not-urgent-not-important)" data-category="not-urgent-not-important">Не срочно, не важно</button>
+                    <button class="category active" style="background: var(--all-tasks)">Все задачи</button>
+                    <button class="category" style="background: var(--urgent-important)">Срочно, важно</button>
+                    <button class="category" style="background: var(--not-urgent-important)">Не срочно, важно</button>
+                    <button class="category" style="background: var(--urgent-not-important)">Срочно, не важно</button>
+                    <button class="category" style="background: var(--not-urgent-not-important)">Не срочно, не важно</button>
                 </div>
             </div>
             <button class="show-completed">Показать выполненные задачи</button>
@@ -410,7 +403,7 @@
 
     <div class="modal" id="taskModal">
         <div class="modal-content">
-            <input type="text" id="taskTitle" placeholder="Название задачи" maxlength="30" required>
+            <input type="text" id="taskTitle" placeholder="Название задачи" required maxlength="30">
             <textarea id="taskDescription" placeholder="Описание (необязательно)" rows="3" maxlength="100"></textarea>
             <select id="taskCategory">
                 <option value="urgent-important">Срочно, важно</option>
@@ -427,7 +420,7 @@
 
     <div class="modal" id="noteModal">
         <div class="modal-content">
-            <input type="text" id="noteTitle" placeholder="Заголовок" maxlength="30" required>
+            <input type="text" id="noteTitle" placeholder="Заголовок" required maxlength="30">
             <textarea id="noteContent" placeholder="Содержание (необязательно)" rows="3" maxlength="100"></textarea>
             <div class="modal-buttons">
                 <button class="modal-button" onclick="closeModal('noteModal')">Отмена</button>
@@ -437,80 +430,89 @@
     </div>
 
     <div class="full-view" id="fullView">
-        <button class="full-view-back" onclick="closeFullView()">←</button>
-        <div class="full-view-content">
-            <h1 class="full-view-title" id="fullViewTitle"></h1>
-            <p class="full-view-text" id="fullViewText"></p>
-            <p class="full-view-date" id="fullViewDate"></p>
-        </div>
+        <button class="back-button" onclick="closeFullView()">×</button>
+        <h2 id="fullViewTitle"></h2>
+        <div class="date" id="fullViewDate"></div>
+        <p id="fullViewContent"></p>
     </div>
 
     <script>
         // Telegram WebApp initialization
-        if (window.Telegram && window.Telegram.WebApp) {
-            const { WebApp } = window.Telegram;
-            WebApp.expand();
-            WebApp.enableClosingConfirmation();
-            WebApp.disableVerticalSwipes();
-            WebApp.lockOrientation?.('portrait');
-            
-            // Set theme based on Telegram theme
-            document.body.setAttribute('data-theme', WebApp.colorScheme);
-            WebApp.setBackgroundColor(WebApp.colorScheme === 'light' ? '#ffffff' : '#000000');
-            WebApp.setHeaderColor(WebApp.colorScheme === 'light' ? '#ffffff' : '#1a1a1a');
-        }
+        const initTelegramWebApp = () => {
+            if (window.Telegram && window.Telegram.WebApp) {
+                const { WebApp } = window.Telegram;
+                WebApp.setBackgroundColor("#000000");
+                WebApp.setHeaderColor("#000000");
+                WebApp.expand();
+                WebApp.enableClosingConfirmation();
+                WebApp.disableVerticalSwipes();
+                WebApp.lockOrientation?.('portrait');
+
+                // Set theme based on Telegram theme
+                document.body.setAttribute('data-theme', WebApp.colorScheme);
+                if (WebApp.colorScheme === 'light') {
+                    WebApp.setBackgroundColor("#ffffff");
+                    WebApp.setHeaderColor("#ffffff");
+                }
+
+                return WebApp;
+            } else {
+                console.warn("Telegram WebApp API недоступен.");
+                return null;
+            }
+        };
+
+        const webApp = initTelegramWebApp();
+
+        // CloudStorage wrapper
+        const cloudStorage = {
+            get: (key, callback) => {
+                if (webApp?.CloudStorage) {
+                    webApp.CloudStorage.getItem(key, callback);
+                } else {
+                    callback(null, localStorage.getItem(key));
+                }
+            },
+            set: (key, value, callback) => {
+                if (webApp?.CloudStorage) {
+                    webApp.CloudStorage.setItem(key, value, callback);
+                } else {
+                    localStorage.setItem(key, value);
+                    if (callback) callback(null, true);
+                }
+            },
+            remove: (key, callback) => {
+                if (webApp?.CloudStorage) {
+                    webApp.CloudStorage.removeItem(key, callback);
+                } else {
+                    localStorage.removeItem(key);
+                    if (callback) callback(null, true);
+                }
+            },
+            getKeys: (callback) => {
+                if (webApp?.CloudStorage) {
+                    webApp.CloudStorage.getKeys(callback);
+                } else {
+                    callback(null, Object.keys(localStorage));
+                }
+            }
+        };
 
         // State management
         let currentSection = 'tasks';
         let showCompleted = false;
-        let currentCategory = 'all';
+        let currentCategory = null;
         let editingItemId = null;
         
-        // Cloud Storage wrapper
-        const cloudStorage = {
-            get: (key, callback) => {
-                if (window.Telegram?.WebApp?.CloudStorage) {
-                    window.Telegram.WebApp.CloudStorage.getItem(key, (err, value) => {
-                        if (err) {
-                            console.error('CloudStorage getItem error:', err);
-                            callback(null);
-                        } else {
-                            callback(value ? JSON.parse(value) : null);
-                        }
-                    });
-                } else {
-                    callback(null);
-                }
-            },
-            set: (key, value, callback) => {
-                if (window.Telegram?.WebApp?.CloudStorage) {
-                    window.Telegram.WebApp.CloudStorage.setItem(key, JSON.stringify(value), (err, success) => {
-                        if (err) {
-                            console.error('CloudStorage setItem error:', err);
-                            if (callback) callback(false);
-                        } else {
-                            if (callback) callback(success);
-                        }
-                    });
-                } else {
-                    if (callback) callback(false);
-                }
-            },
-            remove: (key, callback) => {
-                if (window.Telegram?.WebApp?.CloudStorage) {
-                    window.Telegram.WebApp.CloudStorage.removeItem(key, (err, success) => {
-                        if (err) {
-                            console.error('CloudStorage removeItem error:', err);
-                            if (callback) callback(false);
-                        } else {
-                            if (callback) callback(success);
-                        }
-                    });
-                } else {
-                    if (callback) callback(false);
-                }
+        // Get user identifier
+        const getUserId = () => {
+            if (webApp) {
+                return `tg_${webApp.initDataUnsafe?.user?.id}`;
             }
+            return 'local_user';
         };
+
+        const userId = getUserId();
 
         // Initialize data
         let tasks = [];
@@ -518,13 +520,23 @@
 
         // Load data from CloudStorage
         const loadData = () => {
-            cloudStorage.get('tasks', (data) => {
-                tasks = data || [];
-                cloudStorage.get('notes', (data) => {
-                    notes = data || [];
-                    renderItems();
-                    updateCategoryCounts();
-                });
+            cloudStorage.get(`${userId}_tasks`, (err, data) => {
+                if (!err && data) {
+                    tasks = JSON.parse(data);
+                } else {
+                    tasks = [];
+                }
+                renderItems();
+                updateCategoryCounts();
+            });
+
+            cloudStorage.get(`${userId}_notes`, (err, data) => {
+                if (!err && data) {
+                    notes = JSON.parse(data);
+                } else {
+                    notes = [];
+                }
+                renderItems();
             });
         };
 
@@ -544,55 +556,41 @@
 
         // Get task count by category
         const getTaskCount = (category) => {
-            if (category === 'all') return tasks.filter(task => !task.completed).length;
+            if (category === 'all') {
+                return tasks.filter(task => !task.completed).length;
+            }
             return tasks.filter(task => task.category === category && !task.completed).length;
         };
 
         // Update category counts
         const updateCategoryCounts = () => {
-            document.querySelectorAll('.category').forEach(cat => {
-                const category = cat.dataset.category;
-                const count = getTaskCount(category);
-                const text = cat.textContent.split('(')[0].trim();
-                cat.textContent = `${text} (${count})`;
+            const categoryButtons = document.querySelectorAll('.category');
+            categoryButtons.forEach(button => {
+                const categoryText = button.textContent.split('(')[0].trim();
+                const categoryValue = 
+                    categoryText === 'Все задачи' ? 'all' :
+                    categoryText === 'Срочно, важно' ? 'urgent-important' :
+                    categoryText === 'Не срочно, важно' ? 'not-urgent-important' :
+                    categoryText === 'Срочно, не важно' ? 'urgent-not-important' :
+                    'not-urgent-not-important';
+                
+                const count = getTaskCount(categoryValue);
+                button.innerHTML = `${categoryText} <span class="category-count">${count}</span>`;
             });
         };
 
         // Vibration function
         const vibrate = () => {
-            if (window.Telegram?.WebApp) {
-                window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+            if (webApp?.HapticFeedback) {
+                webApp.HapticFeedback.impactOccurred('medium');
             } else if (navigator.vibrate) {
                 navigator.vibrate(50);
             }
         };
 
-        // Touch handling for swipe between sections
-        let touchStartX = 0;
-        let touchEndX = 0;
-
-        document.addEventListener('touchstart', (e) => {
-            touchStartX = e.touches[0].clientX;
-        });
-
-        document.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].clientX;
-            handleSwipe();
-        });
-
-        const handleSwipe = () => {
-            const swipeDistance = touchEndX - touchStartX;
-            if (Math.abs(swipeDistance) > 50) {
-                if (swipeDistance > 0 && currentSection === 'notes') {
-                    switchSection('tasks');
-                } else if (swipeDistance < 0 && currentSection === 'tasks') {
-                    switchSection('notes');
-                }
-            }
-        };
-
         // Section switching
         const switchSection = (section) => {
+            vibrate();
             currentSection = section;
             navItems.forEach(item => {
                 item.classList.toggle('active', item.dataset.section === section);
@@ -618,13 +616,15 @@
         const openFullView = (item) => {
             vibrate();
             document.getElementById('fullViewTitle').textContent = item.title;
-            document.getElementById('fullViewText').textContent = item.description || item.content || '';
+            
+            const content = currentSection === 'tasks' ? item.description : item.content;
+            document.getElementById('fullViewContent').textContent = content || 'Нет содержимого';
             
             let dateText = `Создано: ${formatDate(item.createdAt)}`;
-            if (item.completed && item.completedAt) {
-                dateText += `\nВыполнено: ${formatDate(item.completedAt)}`;
+            if (currentSection === 'tasks' && item.completed && item.completedAt) {
+                dateText += `<br>Выполнено: ${formatDate(item.completedAt)}`;
             }
-            document.getElementById('fullViewDate').textContent = dateText;
+            document.getElementById('fullViewDate').innerHTML = dateText;
             
             document.getElementById('fullView').style.display = 'block';
         };
@@ -653,24 +653,17 @@
             };
 
             if (editingItemId) {
-                const existingTask = tasks.find(t => t.id === editingItemId);
-                if (existingTask) {
-                    task.completed = existingTask.completed;
-                    task.completedAt = existingTask.completedAt;
-                }
-                tasks = tasks.map(t => t.id === editingItemId ? task : t);
+                tasks = tasks.map(t => t.id === editingItemId ? {...t, ...task} : t);
             } else {
                 tasks.unshift(task);
             }
 
-            cloudStorage.set('tasks', tasks, (success) => {
-                if (success) {
-                    closeModal('taskModal');
-                    renderItems();
-                    document.getElementById('taskTitle').value = '';
-                    document.getElementById('taskDescription').value = '';
-                    updateCategoryCounts();
-                }
+            cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
+                closeModal('taskModal');
+                renderItems();
+                document.getElementById('taskTitle').value = '';
+                document.getElementById('taskDescription').value = '';
+                updateCategoryCounts();
             });
         };
 
@@ -689,18 +682,16 @@
             };
 
             if (editingItemId) {
-                notes = notes.map(n => n.id === editingItemId ? note : n);
+                notes = notes.map(n => n.id === editingItemId ? {...n, ...note} : n);
             } else {
                 notes.unshift(note);
             }
 
-            cloudStorage.set('notes', notes, (success) => {
-                if (success) {
-                    closeModal('noteModal');
-                    renderItems();
-                    document.getElementById('noteTitle').value = '';
-                    document.getElementById('noteContent').value = '';
-                }
+            cloudStorage.set(`${userId}_notes`, JSON.stringify(notes), () => {
+                closeModal('noteModal');
+                renderItems();
+                document.getElementById('noteTitle').value = '';
+                document.getElementById('noteContent').value = '';
             });
         };
 
@@ -730,11 +721,9 @@
                 }
                 return task;
             });
-            cloudStorage.set('tasks', tasks, (success) => {
-                if (success) {
-                    renderItems();
-                    updateCategoryCounts();
-                }
+            cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
+                renderItems();
+                updateCategoryCounts();
             });
         };
 
@@ -743,18 +732,14 @@
             vibrate();
             if (currentSection === 'tasks') {
                 tasks = tasks.filter(task => task.id !== id);
-                cloudStorage.set('tasks', tasks, (success) => {
-                    if (success) {
-                        updateCategoryCounts();
-                        renderItems();
-                    }
+                cloudStorage.set(`${userId}_tasks`, JSON.stringify(tasks), () => {
+                    renderItems();
+                    updateCategoryCounts();
                 });
             } else {
                 notes = notes.filter(note => note.id !== id);
-                cloudStorage.set('notes', notes, (success) => {
-                    if (success) {
-                        renderItems();
-                    }
+                cloudStorage.set(`${userId}_notes`, JSON.stringify(notes), () => {
+                    renderItems();
                 });
             }
         };
@@ -767,28 +752,19 @@
             if (currentSection === 'tasks') {
                 const task = tasks.find(t => t.id === id);
                 document.getElementById('taskTitle').value = task.title;
-                document.getElementById('taskDescription').value = task.description;
+                document.getElementById('taskDescription').value = task.description || '';
                 document.getElementById('taskCategory').value = task.category;
                 openModal('taskModal');
             } else {
                 const note = notes.find(n => n.id === id);
                 document.getElementById('noteTitle').value = note.title;
-                document.getElementById('noteContent').value = note.content;
+                document.getElementById('noteContent').value = note.content || '';
                 openModal('noteModal');
             }
         };
 
-        // Hide card actions when clicking outside
-        document.addEventListener('click', (event) => {
-            if (!event.target.closest('.task-card, .note-card, .action-button')) {
-                document.querySelectorAll('.task-card, .note-card').forEach(card => {
-                    card.classList.remove('show-actions');
-                });
-            }
-        });
-
-        // Sort tasks by priority
-        const sortTasksByPriority = (tasks) => {
+        // Sort tasks by importance
+        const sortTasksByImportance = (tasks) => {
             const priorityOrder = {
                 'urgent-important': 0,
                 'not-urgent-important': 1,
@@ -806,12 +782,12 @@
 
         // Rendering
         const renderItems = () => {
-            let items = currentSection === 'tasks' ? [...tasks] : [...notes];
+            let items = currentSection === 'tasks' ? tasks : notes;
             
             if (currentSection === 'tasks') {
-                items = sortTasksByPriority(items);
+                items = sortTasksByImportance(items);
                 
-                if (currentCategory !== 'all') {
+                if (currentCategory && currentCategory !== 'all') {
                     items = items.filter(task => task.category === currentCategory);
                 }
                 
@@ -824,7 +800,7 @@
                 itemsContainer.innerHTML = `
                     <div class="empty-state">
                         ${currentSection === 'tasks' ? 
-                            (currentCategory === 'all' ? 'Нет задач' : 'Нет задач в этой категории') : 
+                            (showCompleted ? 'Нет задач' : 'Нет активных задач') : 
                             'Нет заметок'}
                     </div>
                 `;
@@ -832,16 +808,19 @@
             }
 
             itemsContainer.innerHTML = items.map(item => {
+                const dateText = currentSection === 'tasks' && item.completed && item.completedAt ?
+                    `Создано: ${formatDate(item.createdAt)}<br>Выполнено: ${formatDate(item.completedAt)}` :
+                    `Создано: ${formatDate(item.createdAt)}`;
+
                 if (currentSection === 'tasks') {
                     return `
                         <div class="task-card ${item.completed ? 'completed' : ''}" 
                              style="border-left: 4px solid var(--${item.category})"
                              onclick="openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
                             <div class="card-content">
-                                <h3 class="card-title">${item.title}</h3>
-                                ${item.description ? `<p class="card-description">${item.description}</p>` : ''}
-                                <p class="card-date">Создано: ${formatDate(item.createdAt)}</p>
-                                ${item.completed && item.completedAt ? `<p class="card-date">Выполнено: ${formatDate(item.completedAt)}</p>` : ''}
+                                <h3>${item.title}</h3>
+                                ${item.description ? `<p>${item.description}</p>` : ''}
+                                <div class="card-date">${dateText}</div>
                             </div>
                             <div class="card-actions">
                                 <button class="action-button" onclick="toggleTaskComplete('${item.id}', event)">
@@ -857,9 +836,9 @@
                         <div class="note-card"
                              onclick="openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
                             <div class="card-content">
-                                <h3 class="card-title">${item.title}</h3>
-                                ${item.content ? `<p class="card-description">${item.content}</p>` : ''}
-                                <p class="card-date">Создано: ${formatDate(item.createdAt)}</p>
+                                <h3>${item.title}</h3>
+                                ${item.content ? `<p>${item.content}</p>` : ''}
+                                <div class="card-date">${dateText}</div>
                             </div>
                             <div class="card-actions">
                                 <button class="action-button" onclick="editItem('${item.id}', event)">✎</button>
@@ -876,14 +855,12 @@
             // Navigation
             navItems.forEach(item => {
                 item.addEventListener('click', () => {
-                    vibrate();
                     switchSection(item.dataset.section);
                 });
             });
 
             // Add button
             addButton.addEventListener('click', () => {
-                vibrate();
                 if (currentSection === 'tasks') {
                     document.getElementById('taskTitle').value = '';
                     document.getElementById('taskDescription').value = '';
@@ -897,7 +874,6 @@
 
             // Show completed tasks
             showCompletedButton.addEventListener('click', () => {
-                vibrate();
                 showCompleted = !showCompleted;
                 showCompletedButton.textContent = showCompleted ? 
                     'Скрыть выполненные задачи' : 'Показать выполненные задачи';
@@ -907,8 +883,14 @@
             // Category filters
             document.querySelectorAll('.category').forEach(cat => {
                 cat.addEventListener('click', () => {
-                    vibrate();
-                    currentCategory = cat.dataset.category;
+                    const categoryText = cat.textContent.split('(')[0].trim();
+                    currentCategory = 
+                        categoryText === 'Все задачи' ? 'all' :
+                        categoryText === 'Срочно, важно' ? 'urgent-important' :
+                        categoryText === 'Не срочно, важно' ? 'not-urgent-important' :
+                        categoryText === 'Срочно, не важно' ? 'urgent-not-important' :
+                        'not-urgent-not-important';
+                    
                     document.querySelectorAll('.category').forEach(c => c.classList.remove('active'));
                     cat.classList.add('active');
                     renderItems();
