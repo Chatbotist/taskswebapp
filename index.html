@@ -40,11 +40,18 @@
             flex-direction: column;
         }
 
+        .header {
+            position: sticky;
+            top: 0;
+            background-color: var(--background-color);
+            z-index: 10;
+            padding-top: 8px;
+        }
+
         .content {
             flex: 1;
             overflow-y: auto;
-            padding: 16px;
-            padding-bottom: 80px;
+            padding: 0 16px 80px;
             -webkit-overflow-scrolling: touch;
         }
 
@@ -137,15 +144,13 @@
         .task-card.completed .card-content h3,
         .task-card.completed .card-content p {
             text-decoration: line-through;
-            position: relative;
-            top: 0;
         }
 
         .card-content {
             margin-right: 0;
             word-break: break-word;
             position: relative;
-            padding-bottom: 20px;
+            padding-bottom: 24px;
         }
 
         .card-content h3 {
@@ -153,6 +158,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 80%;
+            margin-bottom: 4px;
         }
 
         .card-content p {
@@ -165,13 +171,13 @@
 
         .card-date {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
+            bottom: 8px;
+            left: 16px;
+            right: 16px;
             font-size: 12px;
             color: #666;
-            margin-top: 8px;
             white-space: pre-line;
+            line-height: 1.4;
         }
 
         .card-actions {
@@ -334,6 +340,7 @@
             font-size: 14px;
             margin-top: 16px;
             white-space: pre-line;
+            line-height: 1.4;
         }
 
         .full-view-actions {
@@ -411,7 +418,7 @@
 </head>
 <body>
     <div class="container">
-        <div class="content">
+        <div class="header">
             <div class="categories-container" id="categoriesContainer">
                 <div class="categories">
                     <button class="category active" data-category="all" style="background: var(--all-tasks)">Все задачи</button>
@@ -422,6 +429,8 @@
                 </div>
             </div>
             <button class="show-completed" id="showCompleted">Показать выполненные задачи</button>
+        </div>
+        <div class="content" id="content">
             <div id="items-container"></div>
         </div>
         <button class="add-button" id="addButton">+</button>
@@ -433,8 +442,8 @@
 
     <div class="modal" id="taskModal">
         <div class="modal-content">
-            <input type="text" id="taskTitle" placeholder="Название задачи" required maxlength="30">
-            <textarea id="taskDescription" placeholder="Описание (необязательно)" rows="3" maxlength="100"></textarea>
+            <input type="text" id="taskTitle" placeholder="Название задачи" required>
+            <textarea id="taskDescription" placeholder="Описание (необязательно)" rows="3"></textarea>
             <select id="taskCategory">
                 <option value="urgent-important">Срочно, важно</option>
                 <option value="not-urgent-important">Не срочно, важно</option>
@@ -450,8 +459,8 @@
 
     <div class="modal" id="noteModal">
         <div class="modal-content">
-            <input type="text" id="noteTitle" placeholder="Заголовок" required maxlength="30">
-            <textarea id="noteContent" placeholder="Содержание (необязательно)" rows="3" maxlength="100"></textarea>
+            <input type="text" id="noteTitle" placeholder="Заголовок" required>
+            <textarea id="noteContent" placeholder="Содержание (необязательно)" rows="3"></textarea>
             <div class="modal-buttons">
                 <button class="modal-button" id="cancelNote">Отмена</button>
                 <button class="modal-button" id="saveNote">Сохранить</button>
@@ -514,6 +523,7 @@
 
                 initElements: function() {
                     this.elements = {
+                        content: document.getElementById('content'),
                         categoriesContainer: document.getElementById('categoriesContainer'),
                         showCompletedBtn: document.getElementById('showCompleted'),
                         itemsContainer: document.getElementById('items-container'),
@@ -816,6 +826,7 @@
                         completeButton.onclick = (e) => {
                             e.stopPropagation();
                             this.toggleTaskComplete(item.id);
+                            this.closeFullView();
                         };
                         this.elements.fullViewActions.appendChild(completeButton);
                     }
