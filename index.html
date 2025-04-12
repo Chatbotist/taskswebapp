@@ -144,37 +144,36 @@
             background: #2a2a2a;
         }
 
-        .task-card.completed .card-content h3,
-        .task-card.completed .card-content p {
+        .task-card.completed .task-title,
+        .task-card.completed .task-description {
             text-decoration: line-through;
-            margin-bottom: 8px;
         }
 
-        .card-content {
+        .task-content {
             margin-right: 0;
             word-break: break-word;
             position: relative;
-            padding-bottom: 24px;
+            padding-bottom: 40px;
         }
 
-        .card-content h3 {
+        .task-title {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 80%;
-            margin-bottom: 4px;
+            margin-bottom: 8px;
+            font-weight: bold;
         }
 
-        .card-content p {
+        .task-description {
             display: -webkit-box;
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
             overflow: hidden;
-            margin-top: 8px;
-            margin-bottom: 16px;
+            margin: 8px 0 16px;
         }
 
-        .card-date {
+        .task-dates {
             position: absolute;
             bottom: 8px;
             left: 16px;
@@ -183,6 +182,25 @@
             color: #666;
             white-space: pre-line;
             line-height: 1.4;
+        }
+
+        .task-category-select {
+            position: absolute;
+            right: 16px;
+            bottom: 8px;
+            background: #333;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 4px 8px;
+            font-size: 12px;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 4px center;
+            background-size: 12px;
+            padding-right: 20px;
         }
 
         .bottom-nav {
@@ -224,67 +242,6 @@
             background-color: #2196F3;
         }
 
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1002;
-        }
-
-        .modal-content {
-            background: #1a1a1a;
-            padding: 20px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 400px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .modal input, .modal textarea, .modal select {
-            width: 100%;
-            padding: 8px;
-            margin: 8px 0;
-            background: #333;
-            border: none;
-            border-radius: 8px;
-            color: white;
-        }
-
-        .modal textarea {
-            min-height: 100px;
-        }
-
-        .modal select {
-            appearance: none;
-            -webkit-appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            background-size: 16px;
-            padding-right: 28px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 8px;
-            margin-top: 16px;
-        }
-
-        .modal-button {
-            padding: 8px 16px;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-        }
-
         .show-completed {
             background: #333;
             color: white;
@@ -315,18 +272,28 @@
             padding-bottom: 40px;
         }
 
-        .full-view h2 {
+        .full-view-title {
             margin-bottom: 16px;
             word-break: break-word;
+            font-weight: bold;
+            font-size: 1.2em;
         }
 
-        .full-view p {
+        .full-view-text {
             margin-bottom: 16px;
             word-break: break-word;
             white-space: pre-line;
+            min-height: 100px;
+            outline: none;
         }
 
-        .full-view .date {
+        .full-view-text:focus {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 8px;
+        }
+
+        .full-view-dates {
             position: absolute;
             bottom: 0;
             left: 0;
@@ -382,7 +349,7 @@
             cursor: pointer;
         }
 
-        .note-card .card-content {
+        .note-content {
             position: absolute;
             top: 0;
             left: 0;
@@ -393,12 +360,13 @@
             flex-direction: column;
         }
 
-        .note-card .card-content h3 {
+        .note-title {
             font-size: 14px;
             margin-bottom: 8px;
+            font-weight: bold;
         }
 
-        .note-card .card-content p {
+        .note-text {
             font-size: 12px;
             flex-grow: 1;
             overflow: hidden;
@@ -408,8 +376,9 @@
             margin-bottom: 24px;
         }
 
-        .note-card .card-date {
+        .note-dates {
             font-size: 11px;
+            color: #666;
         }
 
         [data-theme="light"] {
@@ -434,21 +403,6 @@
 
         [data-theme="light"] .nav-item {
             color: #000000;
-        }
-
-        [data-theme="light"] .modal-content {
-            background: #ffffff;
-        }
-
-        [data-theme="light"] .modal input,
-        [data-theme="light"] .modal textarea,
-        [data-theme="light"] .modal select {
-            background: #f5f5f5;
-            color: #000000;
-        }
-
-        [data-theme="light"] .full-view {
-            background: var(--background-color);
         }
     </style>
 </head>
@@ -476,39 +430,17 @@
         </nav>
     </div>
 
-    <div class="modal" id="taskModal">
-        <div class="modal-content">
-            <input type="text" id="taskTitle" placeholder="Название задачи" required>
-            <textarea id="taskDescription" placeholder="Описание (необязательно)"></textarea>
-            <select id="taskCategory">
+    <div class="full-view" id="fullView">
+        <div class="full-view-content">
+            <div class="full-view-title" id="fullViewTitle" contenteditable="true"></div>
+            <div class="full-view-text" id="fullViewText" contenteditable="true"></div>
+            <div class="full-view-dates" id="fullViewDates"></div>
+            <select class="task-category-select" id="fullViewCategorySelect" style="display: none;">
                 <option value="urgent-important">Срочно, важно</option>
                 <option value="not-urgent-important">Не срочно, важно</option>
                 <option value="urgent-not-important">Срочно, не важно</option>
                 <option value="not-urgent-not-important">Не срочно, не важно</option>
             </select>
-            <div class="modal-buttons">
-                <button class="modal-button" id="cancelTask">Отмена</button>
-                <button class="modal-button" id="saveTask">Сохранить</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal" id="noteModal">
-        <div class="modal-content">
-            <input type="text" id="noteTitle" placeholder="Заголовок" required>
-            <textarea id="noteContent" placeholder="Содержание (необязательно)"></textarea>
-            <div class="modal-buttons">
-                <button class="modal-button" id="cancelNote">Отмена</button>
-                <button class="modal-button" id="saveNote">Сохранить</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="full-view" id="fullView">
-        <div class="full-view-content">
-            <h2 id="fullViewTitle"></h2>
-            <p id="fullViewContent"></p>
-            <div class="date" id="fullViewDate"></div>
         </div>
         <div class="full-view-actions" id="fullViewActions"></div>
     </div>
@@ -520,8 +452,7 @@
                 currentSection: 'tasks',
                 showCompleted: false,
                 currentCategory: 'all',
-                editingItemId: null,
-                currentFullViewItem: null,
+                currentItem: null,
                 tasks: [],
                 notes: [],
 
@@ -567,23 +498,11 @@
                         navItems: document.querySelectorAll('.nav-item'),
                         categoryButtons: document.querySelectorAll('.category'),
                         
-                        taskModal: document.getElementById('taskModal'),
-                        taskTitle: document.getElementById('taskTitle'),
-                        taskDescription: document.getElementById('taskDescription'),
-                        taskCategory: document.getElementById('taskCategory'),
-                        cancelTask: document.getElementById('cancelTask'),
-                        saveTask: document.getElementById('saveTask'),
-                        
-                        noteModal: document.getElementById('noteModal'),
-                        noteTitle: document.getElementById('noteTitle'),
-                        noteContent: document.getElementById('noteContent'),
-                        cancelNote: document.getElementById('cancelNote'),
-                        saveNote: document.getElementById('saveNote'),
-                        
                         fullView: document.getElementById('fullView'),
                         fullViewTitle: document.getElementById('fullViewTitle'),
-                        fullViewContent: document.getElementById('fullViewContent'),
-                        fullViewDate: document.getElementById('fullViewDate'),
+                        fullViewText: document.getElementById('fullViewText'),
+                        fullViewDates: document.getElementById('fullViewDates'),
+                        fullViewCategorySelect: document.getElementById('fullViewCategorySelect'),
                         fullViewActions: document.getElementById('fullViewActions')
                     };
                 },
@@ -597,15 +516,9 @@
 
                     this.elements.addButton.addEventListener('click', () => {
                         if (this.currentSection === 'tasks') {
-                            this.elements.taskTitle.value = '';
-                            this.elements.taskDescription.value = '';
-                            this.elements.taskCategory.value = this.currentCategory === 'all' ? 
-                                'urgent-important' : this.currentCategory;
-                            this.openModal('taskModal');
+                            this.createNewTask();
                         } else {
-                            this.elements.noteTitle.value = '';
-                            this.elements.noteContent.value = '';
-                            this.openModal('noteModal');
+                            this.createNewNote();
                         }
                     });
 
@@ -620,21 +533,23 @@
                         });
                     });
 
-                    this.elements.cancelTask.addEventListener('click', () => {
-                        this.closeModal('taskModal');
-                        if (this.currentFullViewItem) {
-                            this.openFullView(this.currentFullViewItem);
-                        }
+                    this.elements.fullViewTitle.addEventListener('blur', () => {
+                        this.saveCurrentItem();
                     });
-                    this.elements.saveTask.addEventListener('click', () => this.saveTask());
 
-                    this.elements.cancelNote.addEventListener('click', () => {
-                        this.closeModal('noteModal');
-                        if (this.currentFullViewItem) {
-                            this.openFullView(this.currentFullViewItem);
+                    this.elements.fullViewText.addEventListener('blur', () => {
+                        this.saveCurrentItem();
+                    });
+
+                    this.elements.fullViewCategorySelect.addEventListener('change', () => {
+                        this.saveCurrentItem();
+                    });
+
+                    document.addEventListener('click', (e) => {
+                        if (this.currentItem && !this.elements.fullView.contains(e.target)) {
+                            this.saveCurrentItem();
                         }
                     });
-                    this.elements.saveNote.addEventListener('click', () => this.saveNote());
                 },
 
                 loadData: function() {
@@ -661,65 +576,32 @@
                 getStorageData: function(key, callback) {
                     if (this.webApp?.CloudStorage) {
                         this.webApp.CloudStorage.getItem(key, (err, data) => {
-                            if (err) {
-                                callback(null);
-                                return;
-                            }
-                            
-                            try {
-                                callback(data ? JSON.parse(data) : null);
-                            } catch (e) {
-                                callback(null);
-                            }
+                            callback(data ? JSON.parse(data) : null);
                         });
                     } else {
-                        try {
-                            const data = localStorage.getItem(key);
-                            callback(data ? JSON.parse(data) : null);
-                        } catch (e) {
-                            callback(null);
-                        }
+                        const data = localStorage.getItem(key);
+                        callback(data ? JSON.parse(data) : null);
                     }
                 },
 
                 saveData: function(callback) {
                     const userId = this.getUserId();
-                    
-                    const saveTasks = () => {
-                        const tasksData = JSON.stringify(this.tasks);
-                        if (this.webApp?.CloudStorage) {
-                            this.webApp.CloudStorage.setItem(
-                                `${userId}_tasks`, 
-                                tasksData,
-                                (err) => {
-                                    saveNotes();
-                                }
-                            );
-                        } else {
-                            localStorage.setItem(`${userId}_tasks`, tasksData);
-                            saveNotes();
-                        }
-                    };
-                    
-                    const saveNotes = () => {
-                        const notesData = JSON.stringify(this.notes);
-                        if (this.webApp?.CloudStorage) {
-                            this.webApp.CloudStorage.setItem(
-                                `${userId}_notes`, 
-                                notesData,
-                                (err) => {
-                                    this.updateUI();
-                                    if (callback) callback();
-                                }
-                            );
-                        } else {
-                            localStorage.setItem(`${userId}_notes`, notesData);
-                            this.updateUI();
-                            if (callback) callback();
-                        }
-                    };
-                    
-                    saveTasks();
+                    const tasksData = JSON.stringify(this.tasks);
+                    const notesData = JSON.stringify(this.notes);
+
+                    if (this.webApp?.CloudStorage) {
+                        this.webApp.CloudStorage.setItem(`${userId}_tasks`, tasksData, () => {
+                            this.webApp.CloudStorage.setItem(`${userId}_notes`, notesData, () => {
+                                this.updateUI();
+                                if (callback) callback();
+                            });
+                        });
+                    } else {
+                        localStorage.setItem(`${userId}_tasks`, tasksData);
+                        localStorage.setItem(`${userId}_notes`, notesData);
+                        this.updateUI();
+                        if (callback) callback();
+                    }
                 },
 
                 getUserId: function() {
@@ -839,55 +721,81 @@
                     this.updateUI();
                 },
 
-                openModal: function(modalId) {
-                    this.vibrate();
-                    this.elements[modalId].style.display = 'flex';
+                createNewTask: function() {
+                    this.currentItem = {
+                        id: Date.now().toString(),
+                        title: '',
+                        description: '',
+                        category: this.currentCategory === 'all' ? 'urgent-important' : this.currentCategory,
+                        completed: false,
+                        createdAt: Date.now()
+                    };
+                    this.tasks.unshift(this.currentItem);
+                    this.openFullView(this.currentItem);
+                    setTimeout(() => {
+                        this.elements.fullViewTitle.focus();
+                    }, 100);
                 },
 
-                closeModal: function(modalId) {
-                    this.vibrate();
-                    this.elements[modalId].style.display = 'none';
-                    this.editingItemId = null;
+                createNewNote: function() {
+                    this.currentItem = {
+                        id: Date.now().toString(),
+                        title: '',
+                        content: '',
+                        createdAt: Date.now()
+                    };
+                    this.notes.unshift(this.currentItem);
+                    this.openFullView(this.currentItem);
+                    setTimeout(() => {
+                        this.elements.fullViewTitle.focus();
+                    }, 100);
                 },
 
                 openFullView: function(item) {
                     this.vibrate();
-                    this.currentFullViewItem = item;
+                    this.currentItem = item;
                     
                     this.elements.fullViewTitle.textContent = item.title;
                     
-                    const content = this.currentSection === 'tasks' ? 
-                        item.description : item.content;
-                    this.elements.fullViewContent.textContent = content || 'Нет содержимого';
+                    if (this.currentSection === 'tasks') {
+                        this.elements.fullViewText.textContent = item.description || '';
+                        this.elements.fullViewCategorySelect.value = item.category;
+                        this.elements.fullViewCategorySelect.style.display = 'block';
+                    } else {
+                        this.elements.fullViewText.textContent = item.content || '';
+                        this.elements.fullViewCategorySelect.style.display = 'none';
+                    }
                     
                     let dateText = `Создано: ${this.formatDate(item.createdAt)}`;
                     if (this.currentSection === 'tasks' && item.completed && item.completedAt) {
                         dateText += `\nВыполнено: ${this.formatDate(item.completedAt)}`;
                     }
-                    this.elements.fullViewDate.textContent = dateText;
+                    this.elements.fullViewDates.textContent = dateText;
                     
+                    this.setupFullViewActions();
+                    this.elements.fullView.style.display = 'block';
+                    
+                    if (this.webApp?.BackButton) {
+                        this.webApp.BackButton.show();
+                        this.webApp.BackButton.onClick(() => {
+                            this.closeFullView();
+                        });
+                    }
+                },
+
+                setupFullViewActions: function() {
                     this.elements.fullViewActions.innerHTML = '';
                     
                     if (this.currentSection === 'tasks') {
                         const completeButton = document.createElement('button');
                         completeButton.className = 'full-view-action-button';
-                        completeButton.innerHTML = item.completed ? '↺' : '✓';
+                        completeButton.innerHTML = this.currentItem.completed ? '↺' : '✓';
                         completeButton.onclick = (e) => {
                             e.stopPropagation();
-                            this.toggleTaskComplete(item.id);
-                            this.closeFullView();
+                            this.toggleTaskComplete();
                         };
                         this.elements.fullViewActions.appendChild(completeButton);
                     }
-                    
-                    const editButton = document.createElement('button');
-                    editButton.className = 'full-view-action-button';
-                    editButton.innerHTML = '✎';
-                    editButton.onclick = (e) => {
-                        e.stopPropagation();
-                        this.editItem(item.id);
-                    };
-                    this.elements.fullViewActions.appendChild(editButton);
                     
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'full-view-action-button delete';
@@ -899,28 +807,19 @@
                             'Вы уверены, что хотите удалить эту запись?',
                             (confirmed) => {
                                 if (confirmed) {
-                                    this.deleteItem(item.id);
-                                    this.closeFullView();
+                                    this.deleteCurrentItem();
                                 }
                             }
                         );
                     };
                     this.elements.fullViewActions.appendChild(deleteButton);
-                    
-                    this.elements.fullView.style.display = 'block';
-                    
-                    if (this.webApp?.BackButton) {
-                        this.webApp.BackButton.show();
-                        this.webApp.BackButton.onClick(() => {
-                            this.closeFullView();
-                        });
-                    }
                 },
 
                 closeFullView: function() {
+                    this.saveCurrentItem();
                     this.vibrate();
                     this.elements.fullView.style.display = 'none';
-                    this.currentFullViewItem = null;
+                    this.currentItem = null;
                     
                     if (this.webApp?.BackButton) {
                         this.webApp.BackButton.offClick();
@@ -928,121 +827,54 @@
                     }
                 },
 
+                saveCurrentItem: function() {
+                    if (!this.currentItem) return;
+
+                    this.currentItem.title = this.elements.fullViewTitle.textContent.trim();
+                    
+                    if (this.currentSection === 'tasks') {
+                        this.currentItem.description = this.elements.fullViewText.textContent.trim();
+                        this.currentItem.category = this.elements.fullViewCategorySelect.value;
+                    } else {
+                        this.currentItem.content = this.elements.fullViewText.textContent.trim();
+                    }
+
+                    this.saveData();
+                },
+
                 formatDate: function(timestamp) {
                     const date = new Date(timestamp);
                     return date.toLocaleString();
                 },
 
-                saveTask: function() {
+                toggleTaskComplete: function() {
+                    if (!this.currentItem) return;
+                    
                     this.vibrate();
-                    const title = this.elements.taskTitle.value.trim();
-                    const description = this.elements.taskDescription.value.trim();
-                    const category = this.elements.taskCategory.value;
-
-                    if (!title) return;
-
-                    const task = {
-                        id: this.editingItemId || Date.now().toString(),
-                        title,
-                        description,
-                        category,
-                        completed: false,
-                        createdAt: this.editingItemId ? 
-                            (this.tasks.find(t => t.id === this.editingItemId)?.createdAt || Date.now()) : 
-                            Date.now()
-                    };
-
-                    if (this.editingItemId) {
-                        const existingTask = this.tasks.find(t => t.id === this.editingItemId);
-                        if (existingTask) {
-                            task.completed = existingTask.completed;
-                            task.completedAt = existingTask.completedAt;
-                        }
-                        this.tasks = this.tasks.map(t => t.id === this.editingItemId ? task : t);
-                    } else {
-                        this.tasks.unshift(task);
-                    }
-
-                    this.saveData(() => {
-                        this.closeModal('taskModal');
-                        this.elements.taskTitle.value = '';
-                        this.elements.taskDescription.value = '';
-                    });
-                },
-
-                saveNote: function() {
-                    this.vibrate();
-                    const title = this.elements.noteTitle.value.trim();
-                    const content = this.elements.noteContent.value.trim();
-
-                    if (!title) return;
-
-                    const note = {
-                        id: this.editingItemId || Date.now().toString(),
-                        title,
-                        content,
-                        createdAt: this.editingItemId ? 
-                            (this.notes.find(n => n.id === this.editingItemId)?.createdAt || Date.now()) : 
-                            Date.now()
-                    };
-
-                    if (this.editingItemId) {
-                        this.notes = this.notes.map(n => n.id === this.editingItemId ? note : n);
-                    } else {
-                        this.notes.unshift(note);
-                    }
-
-                    this.saveData(() => {
-                        this.closeModal('noteModal');
-                        this.elements.noteTitle.value = '';
-                        this.elements.noteContent.value = '';
-                    });
-                },
-
-                toggleTaskComplete: function(taskId) {
-                    this.vibrate();
-                    this.tasks = this.tasks.map(task => {
-                        if (task.id === taskId) {
-                            const completed = !task.completed;
-                            return {
-                                ...task,
-                                completed,
-                                completedAt: completed ? Date.now() : undefined
-                            };
-                        }
-                        return task;
-                    });
+                    this.currentItem.completed = !this.currentItem.completed;
+                    this.currentItem.completedAt = this.currentItem.completed ? Date.now() : undefined;
                     
                     this.saveData();
+                    this.setupFullViewActions();
+                    
+                    let dateText = `Создано: ${this.formatDate(this.currentItem.createdAt)}`;
+                    if (this.currentItem.completed && this.currentItem.completedAt) {
+                        dateText += `\nВыполнено: ${this.formatDate(this.currentItem.completedAt)}`;
+                    }
+                    this.elements.fullViewDates.textContent = dateText;
                 },
 
-                deleteItem: function(id) {
+                deleteCurrentItem: function() {
                     this.vibrate();
                     if (this.currentSection === 'tasks') {
-                        this.tasks = this.tasks.filter(task => task.id !== id);
+                        this.tasks = this.tasks.filter(task => task.id !== this.currentItem.id);
                     } else {
-                        this.notes = this.notes.filter(note => note.id !== id);
+                        this.notes = this.notes.filter(note => note.id !== this.currentItem.id);
                     }
                     
-                    this.saveData();
-                },
-
-                editItem: function(id) {
-                    this.vibrate();
-                    this.editingItemId = id;
-                    
-                    if (this.currentSection === 'tasks') {
-                        const task = this.tasks.find(t => t.id === id);
-                        this.elements.taskTitle.value = task.title;
-                        this.elements.taskDescription.value = task.description || '';
-                        this.elements.taskCategory.value = task.category;
-                        this.openModal('taskModal');
-                    } else {
-                        const note = this.notes.find(n => n.id === id);
-                        this.elements.noteTitle.value = note.title;
-                        this.elements.noteContent.value = note.content || '';
-                        this.openModal('noteModal');
-                    }
+                    this.saveData(() => {
+                        this.closeFullView();
+                    });
                 },
 
                 sortTasksByImportance: function(tasks) {
@@ -1096,7 +928,7 @@
 
                 renderTasksList: function(items) {
                     this.elements.itemsContainer.innerHTML = items.map(item => {
-                        const dateText = this.currentSection === 'tasks' && item.completed && item.completedAt ?
+                        const dateText = item.completed && item.completedAt ?
                             `Создано: ${this.formatDate(item.createdAt)}\nВыполнено: ${this.formatDate(item.completedAt)}` :
                             `Создано: ${this.formatDate(item.createdAt)}`;
 
@@ -1104,10 +936,16 @@
                             <div class="task-card ${item.completed ? 'completed' : ''}" 
                                  style="border-left: 4px solid var(--${item.category})"
                                  onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                <div class="card-content">
-                                    <h3>${item.title}</h3>
-                                    ${item.description ? `<p>${item.description}</p>` : ''}
-                                    <div class="card-date">${dateText}</div>
+                                <div class="task-content">
+                                    <div class="task-title">${item.title}</div>
+                                    ${item.description ? `<div class="task-description">${item.description}</div>` : ''}
+                                    <div class="task-dates">${dateText}</div>
+                                    <select class="task-category-select" style="display: none;">
+                                        <option value="urgent-important">Срочно, важно</option>
+                                        <option value="not-urgent-important">Не срочно, важно</option>
+                                        <option value="urgent-not-important">Срочно, не важно</option>
+                                        <option value="not-urgent-not-important">Не срочно, не важно</option>
+                                    </select>
                                 </div>
                             </div>
                         `;
@@ -1123,10 +961,10 @@
                                 return `
                                     <div class="note-card"
                                          onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                        <div class="card-content">
-                                            <h3>${item.title}</h3>
-                                            ${item.content ? `<p>${item.content}</p>` : ''}
-                                            <div class="card-date">${dateText}</div>
+                                        <div class="note-content">
+                                            <div class="note-title">${item.title}</div>
+                                            ${item.content ? `<div class="note-text">${item.content}</div>` : ''}
+                                            <div class="note-dates">${dateText}</div>
                                         </div>
                                     </div>
                                 `;
@@ -1137,7 +975,6 @@
             };
 
             app.init();
-            
             window.app = app;
         });
     </script>
