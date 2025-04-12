@@ -15,6 +15,7 @@
             --completed-task: #808080;
             --background-color: #000000;
             --text-color: #ffffff;
+            --category-border: #ffffff;
         }
 
         * {
@@ -63,7 +64,6 @@
             text-align: center;
             color: #666;
             font-size: 1.1em;
-            user-select: none;
         }
 
         .categories-container {
@@ -89,7 +89,7 @@
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
-            border: 2px solid transparent;
+            border: 2px solid var(--category-border);
             color: white;
             cursor: pointer;
             white-space: nowrap;
@@ -98,11 +98,11 @@
 
         .category.active {
             opacity: 1;
-            border-color: white;
         }
 
         .category:not(.active) {
             opacity: 0.6;
+            border-color: transparent;
         }
 
         .category-count {
@@ -130,7 +130,7 @@
             z-index: 998;
         }
 
-        .task-card, .note-card {
+        .task-card {
             background: #1a1a1a;
             border-radius: 12px;
             padding: 16px;
@@ -171,6 +171,7 @@
             -webkit-box-orient: vertical;
             overflow: hidden;
             margin-top: 8px;
+            margin-bottom: 16px;
         }
 
         .card-date {
@@ -182,44 +183,6 @@
             color: #666;
             white-space: pre-line;
             line-height: 1.4;
-        }
-
-        .card-actions {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: none;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 999;
-        }
-
-        .task-card.show-actions .card-content,
-        .note-card.show-actions .card-content {
-            margin-right: 40px;
-        }
-
-        .task-card.show-actions .card-actions,
-        .note-card.show-actions .card-actions {
-            display: flex;
-        }
-
-        .action-button {
-            width: 32px;
-            height: 32px;
-            border-radius: 16px;
-            border: none;
-            background: #333;
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .action-button.delete {
-            font-size: 18px;
         }
 
         .bottom-nav {
@@ -271,7 +234,7 @@
             display: none;
             justify-content: center;
             align-items: center;
-            z-index: 1000;
+            z-index: 1002;
         }
 
         .modal-content {
@@ -296,6 +259,16 @@
 
         .modal textarea {
             min-height: 100px;
+        }
+
+        .modal select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 16px;
+            padding-right: 28px;
         }
 
         .modal-buttons {
@@ -348,7 +321,7 @@
         }
 
         .full-view p {
-            margin-bottom: 8px;
+            margin-bottom: 16px;
             word-break: break-word;
             white-space: pre-line;
         }
@@ -404,6 +377,9 @@
             padding-bottom: 100%;
             position: relative;
             margin-bottom: 0;
+            background: #1a1a1a;
+            border-radius: 12px;
+            cursor: pointer;
         }
 
         .note-card .card-content {
@@ -417,24 +393,29 @@
             flex-direction: column;
         }
 
+        .note-card .card-content h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
         .note-card .card-content p {
+            font-size: 12px;
             flex-grow: 1;
             overflow: hidden;
             display: -webkit-box;
-            -webkit-line-clamp: 5;
+            -webkit-line-clamp: 7;
             -webkit-box-orient: vertical;
+            margin-bottom: 24px;
         }
 
-        @media (max-width: 380px) {
-            .category {
-                padding: 6px 12px;
-                font-size: 12px;
-            }
+        .note-card .card-date {
+            font-size: 11px;
         }
 
         [data-theme="light"] {
             --background-color: #ffffff;
             --text-color: #000000;
+            --category-border: #000000;
         }
 
         [data-theme="light"] .task-card,
@@ -608,14 +589,12 @@
                 },
 
                 initEventListeners: function() {
-                    // Navigation
                     this.elements.navItems.forEach(item => {
                         item.addEventListener('click', () => {
                             this.switchSection(item.dataset.section);
                         });
                     });
 
-                    // Add button
                     this.elements.addButton.addEventListener('click', () => {
                         if (this.currentSection === 'tasks') {
                             this.elements.taskTitle.value = '';
@@ -630,12 +609,10 @@
                         }
                     });
 
-                    // Show completed tasks
                     this.elements.showCompletedBtn.addEventListener('click', () => {
                         this.toggleShowCompleted();
                     });
 
-                    // Category filters
                     this.elements.categoryButtons.forEach(button => {
                         button.addEventListener('click', () => {
                             this.currentCategory = button.dataset.category;
@@ -643,7 +620,6 @@
                         });
                     });
 
-                    // Task modal buttons
                     this.elements.cancelTask.addEventListener('click', () => {
                         this.closeModal('taskModal');
                         if (this.currentFullViewItem) {
@@ -652,7 +628,6 @@
                     });
                     this.elements.saveTask.addEventListener('click', () => this.saveTask());
 
-                    // Note modal buttons
                     this.elements.cancelNote.addEventListener('click', () => {
                         this.closeModal('noteModal');
                         if (this.currentFullViewItem) {
@@ -665,7 +640,6 @@
                 loadData: function() {
                     const userId = this.getUserId();
                     
-                    // Load tasks
                     this.getStorageData(`${userId}_tasks`, (data) => {
                         this.tasks = data || [];
                         this.tasks.forEach(task => {
@@ -673,7 +647,6 @@
                             task.createdAt = task.createdAt || Date.now();
                         });
                         
-                        // Load notes
                         this.getStorageData(`${userId}_notes`, (data) => {
                             this.notes = data || [];
                             this.notes.forEach(note => {
@@ -689,7 +662,6 @@
                     if (this.webApp?.CloudStorage) {
                         this.webApp.CloudStorage.getItem(key, (err, data) => {
                             if (err) {
-                                console.error('CloudStorage get error:', err);
                                 callback(null);
                                 return;
                             }
@@ -697,7 +669,6 @@
                             try {
                                 callback(data ? JSON.parse(data) : null);
                             } catch (e) {
-                                console.error('JSON parse error:', e);
                                 callback(null);
                             }
                         });
@@ -706,7 +677,6 @@
                             const data = localStorage.getItem(key);
                             callback(data ? JSON.parse(data) : null);
                         } catch (e) {
-                            console.error('LocalStorage get error:', e);
                             callback(null);
                         }
                     }
@@ -717,18 +687,11 @@
                     
                     const saveTasks = () => {
                         const tasksData = JSON.stringify(this.tasks);
-                        if (tasksData.length > 4096 && this.webApp?.CloudStorage) {
-                            console.warn('Tasks data too large for CloudStorage, splitting...');
-                            this.splitAndSaveData(`${userId}_tasks`, this.tasks, saveNotes);
-                            return;
-                        }
-
                         if (this.webApp?.CloudStorage) {
                             this.webApp.CloudStorage.setItem(
                                 `${userId}_tasks`, 
                                 tasksData,
                                 (err) => {
-                                    if (err) console.error('Error saving tasks:', err);
                                     saveNotes();
                                 }
                             );
@@ -740,21 +703,11 @@
                     
                     const saveNotes = () => {
                         const notesData = JSON.stringify(this.notes);
-                        if (notesData.length > 4096 && this.webApp?.CloudStorage) {
-                            console.warn('Notes data too large for CloudStorage, splitting...');
-                            this.splitAndSaveData(`${userId}_notes`, this.notes, () => {
-                                this.updateUI();
-                                if (callback) callback();
-                            });
-                            return;
-                        }
-
                         if (this.webApp?.CloudStorage) {
                             this.webApp.CloudStorage.setItem(
                                 `${userId}_notes`, 
                                 notesData,
                                 (err) => {
-                                    if (err) console.error('Error saving notes:', err);
                                     this.updateUI();
                                     if (callback) callback();
                                 }
@@ -767,48 +720,6 @@
                     };
                     
                     saveTasks();
-                },
-
-                splitAndSaveData: function(key, data, callback) {
-                    // Split data into chunks of max 4000 characters
-                    const stringData = JSON.stringify(data);
-                    const chunkSize = 4000;
-                    const chunks = [];
-                    
-                    for (let i = 0; i < stringData.length; i += chunkSize) {
-                        chunks.push(stringData.substring(i, i + chunkSize));
-                    }
-                    
-                    // Save each chunk with a suffix
-                    const saveChunk = (index) => {
-                        if (index >= chunks.length) {
-                            if (callback) callback();
-                            return;
-                        }
-                        
-                        this.webApp.CloudStorage.setItem(
-                            `${key}_${index}`, 
-                            chunks[index],
-                            (err) => {
-                                if (err) {
-                                    console.error(`Error saving chunk ${index}:`, err);
-                                }
-                                saveChunk(index + 1);
-                            }
-                        );
-                    };
-                    
-                    // First save the number of chunks
-                    this.webApp.CloudStorage.setItem(
-                        `${key}_count`, 
-                        chunks.length.toString(),
-                        (err) => {
-                            if (err) {
-                                console.error('Error saving chunk count:', err);
-                            }
-                            saveChunk(0);
-                        }
-                    );
                 },
 
                 getUserId: function() {
@@ -838,13 +749,11 @@
                         const category = categories[index];
                         const count = this.getTaskCount(category.value);
                         
-                        // Remove old count if exists
                         const oldCount = button.querySelector('.category-count');
                         if (oldCount) {
                             button.removeChild(oldCount);
                         }
                         
-                        // Update button text and add count
                         button.textContent = category.text;
                         const countSpan = document.createElement('span');
                         countSpan.className = 'category-count';
@@ -877,7 +786,6 @@
                         );
                     });
                     
-                    // Show/hide categories and completed button based on section
                     this.elements.categoriesContainer.style.display = 
                         this.currentSection === 'tasks' ? 'block' : 'none';
                     this.elements.showCompletedBtn.style.display = 
@@ -958,7 +866,6 @@
                     }
                     this.elements.fullViewDate.textContent = dateText;
                     
-                    // Setup actions
                     this.elements.fullViewActions.innerHTML = '';
                     
                     if (this.currentSection === 'tasks') {
@@ -1002,7 +909,6 @@
                     
                     this.elements.fullView.style.display = 'block';
                     
-                    // Show Telegram BackButton if available
                     if (this.webApp?.BackButton) {
                         this.webApp.BackButton.show();
                         this.webApp.BackButton.onClick(() => {
@@ -1016,7 +922,6 @@
                     this.elements.fullView.style.display = 'none';
                     this.currentFullViewItem = null;
                     
-                    // Hide Telegram BackButton if available
                     if (this.webApp?.BackButton) {
                         this.webApp.BackButton.offClick();
                         this.webApp.BackButton.hide();
@@ -1231,10 +1136,8 @@
                 }
             };
 
-            // Initialize the app
             app.init();
             
-            // Make app available globally for inline handlers
             window.app = app;
         });
     </script>
