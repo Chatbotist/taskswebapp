@@ -448,52 +448,6 @@
             z-index: 999;
             display: none;
         }
-
-        [data-theme="light"] {
-            --background-color: #ffffff;
-            --text-color: #000000;
-            --category-border: #000000;
-            --active-category-border: #000000;
-            --active-category-underline: #2196F3;
-        }
-
-        [data-theme="light"] .task-card,
-        [data-theme="light"] .note-card {
-            background: #f5f5f5;
-        }
-
-        [data-theme="light"] .task-card.completed {
-            background: #e0e0e0;
-        }
-
-        [data-theme="light"] .bottom-nav {
-            background: #f5f5f5;
-            border-top-color: #ddd;
-        }
-
-        [data-theme="light"] .nav-item {
-            color: #000000;
-        }
-
-        [data-theme="light"] .modal-content {
-            background: #ffffff;
-        }
-
-        [data-theme="light"] .modal input,
-        [data-theme="light"] .modal textarea,
-        [data-theme="light"] .modal select {
-            background: #f5f5f5;
-            color: #000000;
-        }
-
-        [data-theme="light"] .full-view {
-            background: var(--background-color);
-        }
-
-        [data-theme="light"] .storage-limit-warning {
-            background: #ff4444;
-            color: white;
-        }
     </style>
 </head>
 <body>
@@ -513,9 +467,7 @@
         <div class="content" id="content">
             <div id="items-container"></div>
         </div>
-        <div class="storage-limit-warning" id="storageLimitWarning">
-            Достигнут лимит хранилища. Удалите старые записи, чтобы добавить новые.
-        </div>
+        <div class="storage-limit-warning" id="storageLimitWarning"></div>
         <button class="add-button" id="addButton">+</button>
         <nav class="bottom-nav">
             <a class="nav-item active" data-section="tasks">
@@ -577,8 +529,6 @@
                 currentFullViewItem: null,
                 tasks: [],
                 notes: [],
-                MAX_TASKS: 1000,
-                MAX_NOTES: 1000,
                 isDraggingCategories: false,
                 startX: 0,
                 scrollLeft: 0,
@@ -613,8 +563,6 @@
                             console.error('Telegram WebApp initialization error:', e);
                             this.webApp = null;
                         }
-                    } else {
-                        this.webApp = null;
                     }
                 },
 
@@ -716,7 +664,7 @@
                         this.closeFullView();
                     });
 
-                    // Добавляем обработчики для прокрутки категорий
+                    // Обработчики для прокрутки категорий
                     this.elements.categoriesContainer.addEventListener('mousedown', (e) => {
                         this.isDraggingCategories = true;
                         this.startX = e.pageX - this.elements.categoriesContainer.offsetLeft;
@@ -771,109 +719,69 @@
                 loadData: function() {
                     const userId = this.getUserId();
                     
-                    if (this.webApp?.CloudStorage) {
-                        // Загружаем задачи
-                        this.webApp.CloudStorage.getItem(`${userId}_tasks`, (err, data) => {
-                            if (err) {
-                                console.error('Error loading tasks:', err);
-                                this.tasks = [];
-                            } else {
-                                this.tasks = data ? JSON.parse(data) : [];
-                                this.tasks.forEach(task => {
-                                    task.completed = task.completed || false;
-                                    task.createdAt = task.createdAt || Date.now();
-                                });
-                            }
-                            
-                            // Загружаем заметки
-                            this.webApp.CloudStorage.getItem(`${userId}_notes`, (err, data) => {
-                                if (err) {
-                                    console.error('Error loading notes:', err);
-                                    this.notes = [];
-                                } else {
-                                    this.notes = data ? JSON.parse(data) : [];
-                                    this.notes.forEach(note => {
-                                        note.createdAt = note.createdAt || Date.now();
-                                    });
-                                }
-                                this.updateUI();
-                            });
-                        });
-                    } else {
-                        // Локальное хранение для браузера
-                        try {
-                            const tasksData = localStorage.getItem(`${userId}_tasks`);
-                            this.tasks = tasksData ? JSON.parse(tasksData) : [];
+                    // Загружаем задачи
+                    this.webApp.CloudStorage.getItem(`${userId}_tasks`, (err, data) => {
+                        if (err) {
+                            console.error('Error loading tasks:', err);
+                            this.tasks = [];
+                        } else {
+                            this.tasks = data ? JSON.parse(data) : [];
                             this.tasks.forEach(task => {
                                 task.completed = task.completed || false;
                                 task.createdAt = task.createdAt || Date.now();
                             });
-                            
-                            const notesData = localStorage.getItem(`${userId}_notes`);
-                            this.notes = notesData ? JSON.parse(notesData) : [];
-                            this.notes.forEach(note => {
-                                note.createdAt = note.createdAt || Date.now();
-                            });
-                        } catch (e) {
-                            console.error('Error loading data:', e);
-                            this.tasks = [];
-                            this.notes = [];
                         }
                         
-                        this.updateUI();
-                    }
+                        // Загружаем заметки
+                        this.webApp.CloudStorage.getItem(`${userId}_notes`, (err, data) => {
+                            if (err) {
+                                console.error('Error loading notes:', err);
+                                this.notes = [];
+                            } else {
+                                this.notes = data ? JSON.parse(data) : [];
+                                this.notes.forEach(note => {
+                                    note.createdAt = note.createdAt || Date.now();
+                                });
+                            }
+                            this.updateUI();
+                        });
+                    });
                 },
 
                 saveData: function(callback) {
                     const userId = this.getUserId();
                     
-                    if (this.webApp?.CloudStorage) {
-                        // Сохраняем задачи
-                        this.webApp.CloudStorage.setItem(
-                            `${userId}_tasks`, 
-                            JSON.stringify(this.tasks),
-                            (err) => {
-                                if (err) {
-                                    console.error('Error saving tasks:', err);
-                                    this.showStorageLimitWarning('tasks');
-                                    return;
-                                }
-                                
-                                // Сохраняем заметки
-                                this.webApp.CloudStorage.setItem(
-                                    `${userId}_notes`,
-                                    JSON.stringify(this.notes),
-                                    (err) => {
-                                        if (err) {
-                                            console.error('Error saving notes:', err);
-                                            this.showStorageLimitWarning('notes');
-                                            return;
-                                        }
-                                        this.updateUI();
-                                        if (callback) callback();
-                                    }
-                                );
+                    // Сохраняем задачи
+                    this.webApp.CloudStorage.setItem(
+                        `${userId}_tasks`, 
+                        JSON.stringify(this.tasks),
+                        (err) => {
+                            if (err) {
+                                console.error('Error saving tasks:', err);
+                                this.showStorageLimitWarning('tasks');
+                                return;
                             }
-                        );
-                    } else {
-                        // Локальное хранение для браузера
-                        try {
-                            localStorage.setItem(`${userId}_tasks`, JSON.stringify(this.tasks));
-                            localStorage.setItem(`${userId}_notes`, JSON.stringify(this.notes));
-                            this.updateUI();
-                            if (callback) callback();
-                        } catch (e) {
-                            console.error('Error saving data:', e);
-                            this.showStorageLimitWarning('storage');
+                            
+                            // Сохраняем заметки
+                            this.webApp.CloudStorage.setItem(
+                                `${userId}_notes`,
+                                JSON.stringify(this.notes),
+                                (err) => {
+                                    if (err) {
+                                        console.error('Error saving notes:', err);
+                                        this.showStorageLimitWarning('notes');
+                                        return;
+                                    }
+                                    this.updateUI();
+                                    if (callback) callback();
+                                }
+                            );
                         }
-                    }
+                    );
                 },
 
                 getUserId: function() {
-                    if (this.webApp) {
-                        return `tg_${this.webApp.initDataUnsafe?.user?.id || 'unknown'}`;
-                    }
-                    return 'local_user';
+                    return `tg_${this.webApp.initDataUnsafe?.user?.id || 'unknown'}`;
                 },
 
                 updateUI: function() {
@@ -946,16 +854,12 @@
                 vibrate: function() {
                     if (this.webApp?.HapticFeedback) {
                         this.webApp.HapticFeedback.impactOccurred('medium');
-                    } else if (navigator.vibrate) {
-                        navigator.vibrate(50);
                     }
                 },
 
                 showAlert: function(message) {
                     if (this.webApp?.showAlert) {
                         this.webApp.showAlert(message);
-                    } else {
-                        alert(message);
                     }
                 },
 
@@ -992,9 +896,6 @@
                         }, (buttonId) => {
                             callback(buttonId === 'confirm');
                         });
-                    } else {
-                        const result = confirm(`${title}\n${message}`);
-                        callback(result);
                     }
                 },
 
