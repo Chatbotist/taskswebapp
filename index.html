@@ -36,6 +36,7 @@
             overscroll-behavior: none;
             height: 100vh;
             overflow: hidden;
+            touch-action: pan-y;
         }
 
         .container {
@@ -74,6 +75,8 @@
             overflow-x: auto;
             margin-bottom: 16px;
             scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
         }
 
         .categories-container::-webkit-scrollbar {
@@ -86,6 +89,7 @@
             padding-bottom: 4px;
             padding-left: 16px;
             padding-right: 16px;
+            width: max-content;
         }
 
         .category {
@@ -432,6 +436,19 @@
             font-size: 11px;
         }
 
+        .storage-limit-warning {
+            position: fixed;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            background: #ff4444;
+            color: white;
+            padding: 12px 16px;
+            text-align: center;
+            z-index: 999;
+            display: none;
+        }
+
         [data-theme="light"] {
             --background-color: #ffffff;
             --text-color: #000000;
@@ -472,6 +489,11 @@
         [data-theme="light"] .full-view {
             background: var(--background-color);
         }
+
+        [data-theme="light"] .storage-limit-warning {
+            background: #ff4444;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -490,6 +512,9 @@
         </div>
         <div class="content" id="content">
             <div id="items-container"></div>
+        </div>
+        <div class="storage-limit-warning" id="storageLimitWarning">
+            Достигнут лимит хранилища. Удалите старые записи, чтобы добавить новые.
         </div>
         <button class="add-button" id="addButton">+</button>
         <nav class="bottom-nav">
@@ -552,7 +577,11 @@
                 currentFullViewItem: null,
                 tasks: [],
                 notes: [],
-                MAX_STORAGE_ITEMS: 1000,
+                MAX_TASKS: 1000,
+                MAX_NOTES: 1000,
+                isDraggingCategories: false,
+                startX: 0,
+                scrollLeft: 0,
 
                 init: function() {
                     this.initTelegramWebApp();
@@ -593,6 +622,7 @@
                     this.elements = {
                         content: document.getElementById('content'),
                         categoriesContainer: document.getElementById('categoriesContainer'),
+                        categories: document.querySelector('.categories'),
                         showCompletedBtn: document.getElementById('showCompleted'),
                         itemsContainer: document.getElementById('items-container'),
                         addButton: document.getElementById('addButton'),
@@ -613,7 +643,8 @@
                         fullViewTitle: document.getElementById('fullViewTitle'),
                         fullViewContent: document.getElementById('fullViewContent'),
                         fullViewDate: document.getElementById('fullViewDate'),
-                        fullViewActions: document.getElementById('fullViewActions')
+                        fullViewActions: document.getElementById('fullViewActions'),
+                        storageLimitWarning: document.getElementById('storageLimitWarning')
                     };
                 },
 
@@ -626,12 +657,20 @@
 
                     this.elements.addButton.addEventListener('click', () => {
                         if (this.currentSection === 'tasks') {
+                            if (this.tasks.length >= this.MAX_TASKS) {
+                                this.showStorageLimitWarning('tasks');
+                                return;
+                            }
                             this.elements.taskTitle.value = '';
                             this.elements.taskDescription.value = '';
                             this.elements.taskCategory.value = this.currentCategory === 'all' ? 
                                 'urgent-important' : this.currentCategory;
                             this.openModal('taskModal');
                         } else {
+                            if (this.notes.length >= this.MAX_NOTES) {
+                                this.showStorageLimitWarning('notes');
+                                return;
+                            }
                             this.elements.noteTitle.value = '';
                             this.elements.noteContent.value = '';
                             this.openModal('noteModal');
@@ -684,6 +723,57 @@
                         this.closeModal('noteModal');
                         this.closeFullView();
                     });
+
+                    // Добавляем обработчики для прокрутки категорий
+                    this.elements.categoriesContainer.addEventListener('mousedown', (e) => {
+                        this.isDraggingCategories = true;
+                        this.startX = e.pageX - this.elements.categoriesContainer.offsetLeft;
+                        this.scrollLeft = this.elements.categoriesContainer.scrollLeft;
+                        this.elements.categoriesContainer.style.cursor = 'grabbing';
+                        e.preventDefault();
+                    });
+
+                    this.elements.categoriesContainer.addEventListener('mousemove', (e) => {
+                        if (!this.isDraggingCategories) return;
+                        const x = e.pageX - this.elements.categoriesContainer.offsetLeft;
+                        const walk = (x - this.startX) * 2;
+                        this.elements.categoriesContainer.scrollLeft = this.scrollLeft - walk;
+                    });
+
+                    this.elements.categoriesContainer.addEventListener('mouseup', () => {
+                        this.isDraggingCategories = false;
+                        this.elements.categoriesContainer.style.cursor = 'grab';
+                    });
+
+                    this.elements.categoriesContainer.addEventListener('mouseleave', () => {
+                        this.isDraggingCategories = false;
+                        this.elements.categoriesContainer.style.cursor = 'grab';
+                    });
+
+                    // Обработчики для сенсорных устройств
+                    this.elements.categoriesContainer.addEventListener('touchstart', (e) => {
+                        this.isDraggingCategories = true;
+                        this.startX = e.touches[0].pageX - this.elements.categoriesContainer.offsetLeft;
+                        this.scrollLeft = this.elements.categoriesContainer.scrollLeft;
+                        e.preventDefault();
+                    });
+
+                    this.elements.categoriesContainer.addEventListener('touchmove', (e) => {
+                        if (!this.isDraggingCategories) return;
+                        const x = e.touches[0].pageX - this.elements.categoriesContainer.offsetLeft;
+                        const walk = (x - this.startX) * 2;
+                        this.elements.categoriesContainer.scrollLeft = this.scrollLeft - walk;
+                    });
+
+                    this.elements.categoriesContainer.addEventListener('touchend', () => {
+                        this.isDraggingCategories = false;
+                    });
+
+                    // Обработчик колеса мыши для прокрутки категорий
+                    this.elements.categoriesContainer.addEventListener('wheel', (e) => {
+                        e.preventDefault();
+                        this.elements.categoriesContainer.scrollLeft += e.deltaY;
+                    });
                 },
 
                 loadData: function() {
@@ -727,18 +817,6 @@
                 saveData: function(callback) {
                     const userId = this.getUserId();
                     
-                    const checkLimit = (items, type) => {
-                        if (items.length > this.MAX_STORAGE_ITEMS) {
-                            this.showAlert(`Достигнут лимит ${type}. Удалите старые записи, чтобы добавить новые.`);
-                            return false;
-                        }
-                        return true;
-                    };
-                    
-                    if (!checkLimit(this.tasks, 'задач') || !checkLimit(this.notes, 'заметок')) {
-                        return;
-                    }
-
                     if (this.webApp?.CloudStorage) {
                         this.webApp.CloudStorage.setItem(
                             `${userId}_tasks`, 
@@ -758,10 +836,14 @@
                         );
                     } else {
                         // Локальное хранение для браузера
-                        localStorage.setItem(`${userId}_tasks`, JSON.stringify(this.tasks));
-                        localStorage.setItem(`${userId}_notes`, JSON.stringify(this.notes));
-                        this.updateUI();
-                        if (callback) callback();
+                        try {
+                            localStorage.setItem(`${userId}_tasks`, JSON.stringify(this.tasks));
+                            localStorage.setItem(`${userId}_notes`, JSON.stringify(this.notes));
+                            this.updateUI();
+                            if (callback) callback();
+                        } catch (e) {
+                            this.showStorageLimitWarning('storage');
+                        }
                     }
                 },
 
@@ -853,6 +935,21 @@
                     } else {
                         alert(message);
                     }
+                },
+
+                showStorageLimitWarning: function(type) {
+                    const message = type === 'tasks' ? 
+                        'Достигнут лимит задач. Удалите старые задачи, чтобы добавить новые.' :
+                        type === 'notes' ?
+                        'Достигнут лимит заметок. Удалите старые заметки, чтобы добавить новые.' :
+                        'Достигнут лимит хранилища. Удалите старые записи, чтобы добавить новые.';
+                    
+                    this.elements.storageLimitWarning.textContent = message;
+                    this.elements.storageLimitWarning.style.display = 'block';
+                    
+                    setTimeout(() => {
+                        this.elements.storageLimitWarning.style.display = 'none';
+                    }, 5000);
                 },
 
                 showConfirmPopup: function(title, message, callback) {
