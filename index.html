@@ -168,13 +168,17 @@
             z-index: 998;
         }
 
-        .task-card {
+        .item-card {
             background: var(--card-bg-color);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
             position: relative;
             cursor: pointer;
+        }
+
+        .task-card {
+            border-left: 4px solid var(--urgent-important);
         }
 
         .task-card.completed {
@@ -1193,8 +1197,8 @@
                             `Создано: ${this.formatDate(item.createdAt)}`;
 
                         return `
-                            <div class="task-card ${item.completed ? 'completed' : ''}" 
-                                 style="border-left: 4px solid var(--${item.category})"
+                            <div class="item-card task-card ${item.completed ? 'completed' : ''}" 
+                                 style="border-left-color: var(--${item.category})"
                                  onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
                                 <div class="card-content">
                                     <h3>${item.title}</h3>
