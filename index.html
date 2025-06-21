@@ -94,15 +94,11 @@
             cursor: pointer;
             white-space: nowrap;
             flex-shrink: 0;
+            opacity: 1;
         }
 
         .category.active {
             opacity: 1;
-        }
-
-        .category:not(.active) {
-            opacity: 0.6;
-            border-color: transparent;
         }
 
         .category-count {
@@ -522,6 +518,7 @@
                 currentFullViewItem: null,
                 tasks: [],
                 notes: [],
+                MAX_STORAGE_ITEMS: 1000,
 
                 init: function() {
                     this.initTelegramWebApp();
@@ -532,22 +529,33 @@
 
                 initTelegramWebApp: function() {
                     if (window.Telegram && window.Telegram.WebApp) {
-                        this.webApp = window.Telegram.WebApp;
-                        this.webApp.setBackgroundColor("#000000");
-                        this.webApp.setHeaderColor("#000000");
-                        this.webApp.expand();
-                        this.webApp.enableClosingConfirmation();
-                        this.webApp.disableVerticalSwipes();
-                        
-                        if (this.webApp.lockOrientation) {
-                            this.webApp.lockOrientation('portrait');
-                        }
+                        try {
+                            this.webApp = window.Telegram.WebApp;
+                            this.webApp.setBackgroundColor("#000000");
+                            this.webApp.setHeaderColor("#000000");
+                            this.webApp.expand();
+                            this.webApp.enableClosingConfirmation();
+                            this.webApp.disableVerticalSwipes();
+                            
+                            if (this.webApp.lockOrientation) {
+                                this.webApp.lockOrientation('portrait');
+                            }
 
-                        document.body.setAttribute('data-theme', this.webApp.colorScheme);
-                        if (this.webApp.colorScheme === 'light') {
-                            this.webApp.setBackgroundColor("#ffffff");
-                            this.webApp.setHeaderColor("#ffffff");
+                            document.body.setAttribute('data-theme', this.webApp.colorScheme);
+                            if (this.webApp.colorScheme === 'light') {
+                                this.webApp.setBackgroundColor("#ffffff");
+                                this.webApp.setHeaderColor("#ffffff");
+                            }
+                        } catch (e) {
+                            console.error('Telegram WebApp initialization error:', e);
+                            this.webApp = null;
                         }
+                    } else {
+                        this.webApp = null;
+                    }
+                    
+                    if (!this.webApp) {
+                        console.log('Running in browser mode with local storage');
                     }
                 },
 
@@ -673,6 +681,18 @@
                 saveData: function(callback) {
                     const userId = this.getUserId();
                     
+                    const checkLimit = (items, type) => {
+                        if (items.length > this.MAX_STORAGE_ITEMS) {
+                            this.showAlert(`Достигнут лимит ${type}. Удалите старые записи, чтобы добавить новые.`);
+                            return false;
+                        }
+                        return true;
+                    };
+                    
+                    if (!checkLimit(this.tasks, 'задач') || !checkLimit(this.notes, 'заметок')) {
+                        return;
+                    }
+
                     const saveTasks = () => {
                         const tasksData = JSON.stringify(this.tasks);
                         if (this.webApp?.CloudStorage) {
@@ -749,12 +769,16 @@
                 },
 
                 getTaskCount: function(category) {
-                    if (category === 'all') {
-                        return this.tasks.filter(task => !task.completed).length;
+                    let tasksToCount = this.tasks;
+                    
+                    if (!this.showCompleted) {
+                        tasksToCount = tasksToCount.filter(task => !task.completed);
                     }
-                    return this.tasks.filter(task => 
-                        task.category === category && !task.completed
-                    ).length;
+                    
+                    if (category === 'all') {
+                        return tasksToCount.length;
+                    }
+                    return tasksToCount.filter(task => task.category === category).length;
                 },
 
                 updateCategorySelection: function() {
@@ -783,6 +807,14 @@
                         this.webApp.HapticFeedback.impactOccurred('medium');
                     } else if (navigator.vibrate) {
                         navigator.vibrate(50);
+                    }
+                },
+
+                showAlert: function(message) {
+                    if (this.webApp?.showAlert) {
+                        this.webApp.showAlert(message);
+                    } else {
+                        alert(message);
                     }
                 },
 
