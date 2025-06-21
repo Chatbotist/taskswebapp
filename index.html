@@ -17,7 +17,8 @@
             --background-color: #000000;
             --text-color: #ffffff;
             --category-border: #ffffff;
-            --active-category-border: #2196F3;
+            --active-category-border: #000000;
+            --active-category-underline: #2196F3;
         }
 
         * {
@@ -91,16 +92,30 @@
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
-            border: 2px solid transparent;
+            border: none;
             color: white;
             cursor: pointer;
             white-space: nowrap;
             flex-shrink: 0;
             opacity: 1;
+            position: relative;
+            background: transparent;
         }
 
         .category.active {
-            border-color: var(--active-category-border);
+            border: 2px solid var(--active-category-border);
+        }
+
+        .category.active::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50%;
+            height: 3px;
+            background-color: var(--active-category-underline);
+            border-radius: 3px;
         }
 
         .category-count {
@@ -421,7 +436,8 @@
             --background-color: #ffffff;
             --text-color: #000000;
             --category-border: #000000;
-            --active-category-border: #2196F3;
+            --active-category-border: #000000;
+            --active-category-underline: #2196F3;
         }
 
         [data-theme="light"] .task-card,
@@ -488,7 +504,6 @@
         </nav>
     </div>
 
-    <!-- Остальной код (модальные окна, full-view) остается без изменений -->
     <div class="modal" id="taskModal">
         <div class="modal-content">
             <input type="text" id="taskTitle" placeholder="Название задачи" required>
@@ -572,10 +587,6 @@
                     } else {
                         this.webApp = null;
                     }
-                    
-                    if (!this.webApp) {
-                        console.log('Running in browser mode with local storage');
-                    }
                 },
 
                 initElements: function() {
@@ -646,6 +657,11 @@
                     });
 
                     this.elements.saveTask.addEventListener('click', () => {
+                        const title = this.elements.taskTitle.value.trim();
+                        if (!title) {
+                            this.showAlert('Введите название задачи');
+                            return;
+                        }
                         this.saveTask();
                         this.closeModal('taskModal');
                         this.closeFullView();
@@ -659,6 +675,11 @@
                     });
 
                     this.elements.saveNote.addEventListener('click', () => {
+                        const title = this.elements.noteTitle.value.trim();
+                        if (!title) {
+                            this.showAlert('Введите заголовок заметки');
+                            return;
+                        }
                         this.saveNote();
                         this.closeModal('noteModal');
                         this.closeFullView();
@@ -668,32 +689,38 @@
                 loadData: function() {
                     const userId = this.getUserId();
                     
-                    this.getStorageData(`${userId}_tasks`, (data) => {
-                        this.tasks = data || [];
+                    if (this.webApp?.CloudStorage) {
+                        this.webApp.CloudStorage.getItem(`${userId}_tasks`, (err, data) => {
+                            this.tasks = data ? JSON.parse(data) : [];
+                            this.tasks.forEach(task => {
+                                task.completed = task.completed || false;
+                                task.createdAt = task.createdAt || Date.now();
+                            });
+                            
+                            this.webApp.CloudStorage.getItem(`${userId}_notes`, (err, data) => {
+                                this.notes = data ? JSON.parse(data) : [];
+                                this.notes.forEach(note => {
+                                    note.createdAt = note.createdAt || Date.now();
+                                });
+                                this.updateUI();
+                            });
+                        });
+                    } else {
+                        // Локальное хранение для браузера
+                        const tasksData = localStorage.getItem(`${userId}_tasks`);
+                        this.tasks = tasksData ? JSON.parse(tasksData) : [];
                         this.tasks.forEach(task => {
                             task.completed = task.completed || false;
                             task.createdAt = task.createdAt || Date.now();
                         });
                         
-                        this.getStorageData(`${userId}_notes`, (data) => {
-                            this.notes = data || [];
-                            this.notes.forEach(note => {
-                                note.createdAt = note.createdAt || Date.now();
-                            });
-                            
-                            this.updateUI();
+                        const notesData = localStorage.getItem(`${userId}_notes`);
+                        this.notes = notesData ? JSON.parse(notesData) : [];
+                        this.notes.forEach(note => {
+                            note.createdAt = note.createdAt || Date.now();
                         });
-                    });
-                },
-
-                getStorageData: function(key, callback) {
-                    if (this.webApp?.CloudStorage) {
-                        this.webApp.CloudStorage.getItem(key, (err, data) => {
-                            callback(data ? JSON.parse(data) : null);
-                        });
-                    } else {
-                        const data = localStorage.getItem(key);
-                        callback(data ? JSON.parse(data) : null);
+                        
+                        this.updateUI();
                     }
                 },
 
@@ -712,39 +739,30 @@
                         return;
                     }
 
-                    const saveTasks = () => {
-                        const tasksData = JSON.stringify(this.tasks);
-                        if (this.webApp?.CloudStorage) {
-                            this.webApp.CloudStorage.setItem(
-                                `${userId}_tasks`, 
-                                tasksData,
-                                () => saveNotes()
-                            );
-                        } else {
-                            localStorage.setItem(`${userId}_tasks`, tasksData);
-                            saveNotes();
-                        }
-                    };
-                    
-                    const saveNotes = () => {
-                        const notesData = JSON.stringify(this.notes);
-                        if (this.webApp?.CloudStorage) {
-                            this.webApp.CloudStorage.setItem(
-                                `${userId}_notes`, 
-                                notesData,
-                                () => {
-                                    this.updateUI();
-                                    if (callback) callback();
-                                }
-                            );
-                        } else {
-                            localStorage.setItem(`${userId}_notes`, notesData);
-                            this.updateUI();
-                            if (callback) callback();
-                        }
-                    };
-                    
-                    saveTasks();
+                    if (this.webApp?.CloudStorage) {
+                        this.webApp.CloudStorage.setItem(
+                            `${userId}_tasks`, 
+                            JSON.stringify(this.tasks),
+                            (err) => {
+                                if (err) console.error('Error saving tasks:', err);
+                                this.webApp.CloudStorage.setItem(
+                                    `${userId}_notes`,
+                                    JSON.stringify(this.notes),
+                                    (err) => {
+                                        if (err) console.error('Error saving notes:', err);
+                                        this.updateUI();
+                                        if (callback) callback();
+                                    }
+                                );
+                            }
+                        );
+                    } else {
+                        // Локальное хранение для браузера
+                        localStorage.setItem(`${userId}_tasks`, JSON.stringify(this.tasks));
+                        localStorage.setItem(`${userId}_notes`, JSON.stringify(this.notes));
+                        this.updateUI();
+                        if (callback) callback();
+                    }
                 },
 
                 getUserId: function() {
