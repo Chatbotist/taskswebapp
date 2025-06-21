@@ -561,6 +561,7 @@
                 isDraggingCategories: false,
                 startX: 0,
                 scrollLeft: 0,
+                MAX_ITEMS_PER_BATCH: 50, // Максимальное количество элементов в одной записи CloudStorage
 
                 init: function() {
                     this.initTelegramWebApp();
@@ -576,10 +577,8 @@
                             this.webApp.expand();
                             this.webApp.enableClosingConfirmation();
                             
-                            // Устанавливаем тему в зависимости от настроек Telegram
                             document.body.setAttribute('data-theme', this.webApp.colorScheme);
                             
-                            // Обновляем фон и цвет заголовка
                             const bgColor = this.webApp.colorScheme === 'light' ? '#ffffff' : '#000000';
                             this.webApp.setBackgroundColor(bgColor);
                             this.webApp.setHeaderColor(bgColor);
@@ -623,6 +622,156 @@
                     };
                 },
 
+                // Загрузка данных с новой логикой пакетного хранения
+                loadData: function() {
+                    const userId = this.getUserId();
+                    
+                    // Загружаем задачи
+                    this.loadBatchedData(`${userId}_tasks`, 'tasks', (items) => {
+                        this.tasks = items;
+                        
+                        // Загружаем заметки
+                        this.loadBatchedData(`${userId}_notes`, 'notes', (items) => {
+                            this.notes = items;
+                            this.updateUI();
+                        });
+                    });
+                },
+
+                // Загрузка данных, разбитых на пакеты
+                loadBatchedData: function(baseKey, type, callback) {
+                    let allItems = [];
+                    let batchIndex = 0;
+                    let batchesToLoad = 0;
+                    let batchesLoaded = 0;
+                    
+                    // Сначала узнаем сколько всего пакетов
+                    this.webApp.CloudStorage.getItem(`${baseKey}_count`, (err, countData) => {
+                        if (err) {
+                            console.error(`Error loading ${type} batch count:`, err);
+                            // Если не удалось загрузить счетчик, пробуем загрузить как старый формат
+                            this.webApp.CloudStorage.getItem(baseKey, (err, data) => {
+                                if (!err && data) {
+                                    try {
+                                        const items = JSON.parse(data);
+                                        if (Array.isArray(items)) {
+                                            allItems = items;
+                                        }
+                                    } catch (e) {
+                                        console.error(`Error parsing ${type} data:`, e);
+                                    }
+                                }
+                                callback(allItems);
+                            });
+                            return;
+                        }
+                        
+                        batchesToLoad = parseInt(countData) || 0;
+                        if (batchesToLoad === 0) {
+                            callback(allItems);
+                            return;
+                        }
+                        
+                        // Загружаем все пакеты
+                        for (let i = 0; i < batchesToLoad; i++) {
+                            this.webApp.CloudStorage.getItem(`${baseKey}_${i}`, (err, batchData) => {
+                                batchesLoaded++;
+                                if (!err && batchData) {
+                                    try {
+                                        const batchItems = JSON.parse(batchData);
+                                        if (Array.isArray(batchItems)) {
+                                            allItems = allItems.concat(batchItems);
+                                        }
+                                    } catch (e) {
+                                        console.error(`Error parsing ${type} batch ${i}:`, e);
+                                    }
+                                }
+                                
+                                if (batchesLoaded >= batchesToLoad) {
+                                    callback(allItems);
+                                }
+                            });
+                        }
+                    });
+                },
+
+                // Сохранение данных с новой логикой пакетного хранения
+                saveData: function(callback) {
+                    const userId = this.getUserId();
+                    
+                    // Сохраняем задачи
+                    this.saveBatchedData(`${userId}_tasks`, this.tasks, (err) => {
+                        if (err) {
+                            this.showStorageLimitWarning('tasks');
+                            return;
+                        }
+                        
+                        // Сохраняем заметки
+                        this.saveBatchedData(`${userId}_notes`, this.notes, (err) => {
+                            if (err) {
+                                this.showStorageLimitWarning('notes');
+                                return;
+                            }
+                            
+                            this.updateUI();
+                            if (callback) callback();
+                        });
+                    });
+                },
+
+                // Сохранение данных, разбитых на пакеты
+                saveBatchedData: function(baseKey, items, callback) {
+                    const batches = [];
+                    const batchCount = Math.ceil(items.length / this.MAX_ITEMS_PER_BATCH);
+                    
+                    // Разбиваем на пакеты
+                    for (let i = 0; i < batchCount; i++) {
+                        const start = i * this.MAX_ITEMS_PER_BATCH;
+                        const end = start + this.MAX_ITEMS_PER_BATCH;
+                        batches.push(items.slice(start, end));
+                    }
+                    
+                    // Сначала сохраняем количество пакетов
+                    this.webApp.CloudStorage.setItem(
+                        `${baseKey}_count`,
+                        batchCount.toString(),
+                        (err) => {
+                            if (err) {
+                                callback(err);
+                                return;
+                            }
+                            
+                            // Затем сохраняем каждый пакет
+                            let savedCount = 0;
+                            let saveError = null;
+                            
+                            batches.forEach((batch, index) => {
+                                this.webApp.CloudStorage.setItem(
+                                    `${baseKey}_${index}`,
+                                    JSON.stringify(batch),
+                                    (err) => {
+                                        if (err) {
+                                            console.error(`Error saving ${baseKey} batch ${index}:`, err);
+                                            saveError = err;
+                                        }
+                                        
+                                        savedCount++;
+                                        
+                                        if (savedCount >= batches.length) {
+                                            callback(saveError);
+                                        }
+                                    }
+                                );
+                            });
+                        }
+                    );
+                },
+
+                getUserId: function() {
+                    return `tg_${this.webApp.initDataUnsafe?.user?.id || 'unknown'}`;
+                },
+
+                // Остальные методы остаются без изменений
                 initEventListeners: function() {
                     this.elements.navItems.forEach(item => {
                         item.addEventListener('click', () => {
@@ -741,74 +890,6 @@
                         e.preventDefault();
                         this.elements.categoriesContainer.scrollLeft += e.deltaY;
                     });
-                },
-
-                loadData: function() {
-                    const userId = this.getUserId();
-                    
-                    // Загружаем задачи
-                    this.webApp.CloudStorage.getItem(`${userId}_tasks`, (err, data) => {
-                        if (err) {
-                            console.error('Error loading tasks:', err);
-                            this.tasks = [];
-                        } else {
-                            this.tasks = data ? JSON.parse(data) : [];
-                            this.tasks.forEach(task => {
-                                task.completed = task.completed || false;
-                                task.createdAt = task.createdAt || Date.now();
-                            });
-                        }
-                        
-                        // Загружаем заметки
-                        this.webApp.CloudStorage.getItem(`${userId}_notes`, (err, data) => {
-                            if (err) {
-                                console.error('Error loading notes:', err);
-                                this.notes = [];
-                            } else {
-                                this.notes = data ? JSON.parse(data) : [];
-                                this.notes.forEach(note => {
-                                    note.createdAt = note.createdAt || Date.now();
-                                });
-                            }
-                            this.updateUI();
-                        });
-                    });
-                },
-
-                saveData: function(callback) {
-                    const userId = this.getUserId();
-                    
-                    // Сохраняем задачи
-                    this.webApp.CloudStorage.setItem(
-                        `${userId}_tasks`, 
-                        JSON.stringify(this.tasks),
-                        (err) => {
-                            if (err) {
-                                console.error('Error saving tasks:', err);
-                                this.showStorageLimitWarning('tasks');
-                                return;
-                            }
-                            
-                            // Сохраняем заметки
-                            this.webApp.CloudStorage.setItem(
-                                `${userId}_notes`,
-                                JSON.stringify(this.notes),
-                                (err) => {
-                                    if (err) {
-                                        console.error('Error saving notes:', err);
-                                        this.showStorageLimitWarning('notes');
-                                        return;
-                                    }
-                                    this.updateUI();
-                                    if (callback) callback();
-                                }
-                            );
-                        }
-                    );
-                },
-
-                getUserId: function() {
-                    return `tg_${this.webApp.initDataUnsafe?.user?.id || 'unknown'}`;
                 },
 
                 updateUI: function() {
@@ -1009,233 +1090,261 @@
                             }
                         );
                     };
-                    this.elements.fullViewActions.appendChild(deleteButton);
-                    
-                    this.elements.fullView.style.display = 'block';
-                    
-                    if (this.webApp?.BackButton) {
-                        this.webApp.BackButton.show();
-                        this.webApp.BackButton.onClick(() => {
-                            this.closeFullView();
-                        });
-                    }
-                },
-
-                closeFullView: function() {
-                    this.vibrate();
-                    this.elements.fullView.style.display = 'none';
-                    this.currentFullViewItem = null;
-                    
-                    if (this.webApp?.BackButton) {
-                        this.webApp.BackButton.offClick();
-                        this.webApp.BackButton.hide();
-                    }
-                },
-
-                formatDate: function(timestamp) {
-                    const date = new Date(timestamp);
-                    return date.toLocaleString();
-                },
-
-                saveTask: function() {
-                    this.vibrate();
-                    const title = this.elements.taskTitle.value.trim();
-                    const description = this.elements.taskDescription.value.trim();
-                    const category = this.elements.taskCategory.value;
-
-                    if (!title) return;
-
-                    const task = {
-                        id: this.editingItemId || Date.now().toString(),
-                        title,
-                        description,
-                        category,
-                        completed: false,
-                        createdAt: this.editingItemId ? 
-                            (this.tasks.find(t => t.id === this.editingItemId)?.createdAt || Date.now()) : 
-                            Date.now()
-                    };
-
-                    if (this.editingItemId) {
-                        const existingTask = this.tasks.find(t => t.id === this.editingItemId);
-                        if (existingTask) {
-                            task.completed = existingTask.completed;
-                            task.completedAt = existingTask.completedAt;
-                        }
-                        this.tasks = this.tasks.map(t => t.id === this.editingItemId ? task : t);
-                    } else {
-                        this.tasks.unshift(task);
-                    }
-
-                    this.saveData();
-                },
-
-                saveNote: function() {
-                    this.vibrate();
-                    const title = this.elements.noteTitle.value.trim();
-                    const content = this.elements.noteContent.value.trim();
-
-                    if (!title) return;
-
-                    const note = {
-                        id: this.editingItemId || Date.now().toString(),
-                        title,
-                        content,
-                        createdAt: this.editingItemId ? 
-                            (this.notes.find(n => n.id === this.editingItemId)?.createdAt || Date.now()) : 
-                            Date.now()
-                    };
-
-                    if (this.editingItemId) {
-                        this.notes = this.notes.map(n => n.id === this.editingItemId ? note : n);
-                    } else {
-                        this.notes.unshift(note);
-                    }
-
-                    this.saveData();
-                },
-
-                toggleTaskComplete: function(taskId) {
-                    this.vibrate();
-                    this.tasks = this.tasks.map(task => {
-                        if (task.id === taskId) {
-                            const completed = !task.completed;
-                            return {
-                                ...task,
-                                completed,
-                                completedAt: completed ? Date.now() : undefined
-                            };
-                        }
-                        return task;
+                this.elements.fullViewActions.appendChild(deleteButton);
+                
+                this.elements.fullView.style.display = 'block';
+                
+                if (this.webApp?.BackButton) {
+                    this.webApp.BackButton.show();
+                    this.webApp.BackButton.onClick(() => {
+                        this.closeFullView();
                     });
-                    
-                    this.saveData();
-                },
+                }
+            },
 
-                deleteItem: function(id) {
-                    this.vibrate();
-                    if (this.currentSection === 'tasks') {
-                        this.tasks = this.tasks.filter(task => task.id !== id);
-                    } else {
-                        this.notes = this.notes.filter(note => note.id !== id);
+            closeFullView: function() {
+                this.vibrate();
+                this.elements.fullView.style.display = 'none';
+                this.currentFullViewItem = null;
+                
+                if (this.webApp?.BackButton) {
+                    this.webApp.BackButton.offClick();
+                    this.webApp.BackButton.hide();
+                }
+            },
+
+            formatDate: function(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleString();
+            },
+
+            saveTask: function() {
+                this.vibrate();
+                const title = this.elements.taskTitle.value.trim();
+                const description = this.elements.taskDescription.value.trim();
+                const category = this.elements.taskCategory.value;
+
+                if (!title) return;
+
+                const task = {
+                    id: this.editingItemId || Date.now().toString(),
+                    title,
+                    description,
+                    category,
+                    completed: false,
+                    createdAt: this.editingItemId ? 
+                        (this.tasks.find(t => t.id === this.editingItemId)?.createdAt || Date.now()) : 
+                        Date.now()
+                };
+
+                if (this.editingItemId) {
+                    const existingTask = this.tasks.find(t => t.id === this.editingItemId);
+                    if (existingTask) {
+                        task.completed = existingTask.completed;
+                        task.completedAt = existingTask.completedAt;
                     }
-                    
-                    this.saveData();
-                },
+                    this.tasks = this.tasks.map(t => t.id === this.editingItemId ? task : t);
+                } else {
+                    this.tasks.unshift(task);
+                }
 
-                editItem: function(id) {
-                    this.vibrate();
-                    this.editingItemId = id;
-                    
-                    if (this.currentSection === 'tasks') {
-                        const task = this.tasks.find(t => t.id === id);
-                        this.elements.taskTitle.value = task.title;
-                        this.elements.taskDescription.value = task.description || '';
-                        this.elements.taskCategory.value = task.category;
-                        this.openModal('taskModal');
-                    } else {
-                        const note = this.notes.find(n => n.id === id);
-                        this.elements.noteTitle.value = note.title;
-                        this.elements.noteContent.value = note.content || '';
-                        this.openModal('noteModal');
+                this.saveData();
+            },
+
+            saveNote: function() {
+                this.vibrate();
+                const title = this.elements.noteTitle.value.trim();
+                const content = this.elements.noteContent.value.trim();
+
+                if (!title) return;
+
+                const note = {
+                    id: this.editingItemId || Date.now().toString(),
+                    title,
+                    content,
+                    createdAt: this.editingItemId ? 
+                        (this.notes.find(n => n.id === this.editingItemId)?.createdAt || Date.now()) : 
+                        Date.now()
+                };
+
+                if (this.editingItemId) {
+                    this.notes = this.notes.map(n => n.id === this.editingItemId ? note : n);
+                } else {
+                    this.notes.unshift(note);
+                }
+
+                this.saveData();
+            },
+
+            toggleTaskComplete: function(taskId) {
+                this.vibrate();
+                this.tasks = this.tasks.map(task => {
+                    if (task.id === taskId) {
+                        const completed = !task.completed;
+                        return {
+                            ...task,
+                            completed,
+                            completedAt: completed ? Date.now() : undefined
+                        };
                     }
-                },
+                    return task;
+                });
+                
+                this.saveData();
+            },
 
-                sortTasksByImportance: function(tasks) {
-                    const priorityOrder = {
-                        'urgent-important': 0,
-                        'not-urgent-important': 1,
-                        'urgent-not-important': 2,
-                        'not-urgent-not-important': 3
-                    };
+            deleteItem: function(id) {
+                this.vibrate();
+                if (this.currentSection === 'tasks') {
+                    this.tasks = this.tasks.filter(task => task.id !== id);
+                } else {
+                    this.notes = this.notes.filter(note => note.id !== id);
+                }
+                
+                this.saveData(() => {
+                    // После удаления проверяем, нужно ли уменьшить количество пакетов
+                    this.optimizeStorage();
+                });
+            },
+
+            // Оптимизация хранилища - удаление пустых пакетов
+            optimizeStorage: function() {
+                const userId = this.getUserId();
+                const types = ['tasks', 'notes'];
+                
+                types.forEach(type => {
+                    const baseKey = `${userId}_${type}`;
+                    const items = type === 'tasks' ? this.tasks : this.notes;
                     
-                    return [...tasks].sort((a, b) => {
-                        if (a.completed !== b.completed) {
-                            return a.completed ? 1 : -1;
+                    // Получаем текущее количество пакетов
+                    this.webApp.CloudStorage.getItem(`${baseKey}_count`, (err, countData) => {
+                        if (err || !countData) return;
+                        
+                        const currentBatchCount = parseInt(countData);
+                        const requiredBatchCount = Math.ceil(items.length / this.MAX_ITEMS_PER_BATCH);
+                        
+                        // Если есть лишние пакеты - удаляем их
+                        if (currentBatchCount > requiredBatchCount) {
+                            for (let i = requiredBatchCount; i < currentBatchCount; i++) {
+                                this.webApp.CloudStorage.removeItem(`${baseKey}_${i}`);
+                            }
+                            // Обновляем счетчик пакетов
+                            this.webApp.CloudStorage.setItem(`${baseKey}_count`, requiredBatchCount.toString());
                         }
-                        return priorityOrder[a.category] - priorityOrder[b.category];
                     });
-                },
+                });
+            },
 
-                renderItems: function() {
-                    let items = this.currentSection === 'tasks' ? this.tasks : this.notes;
+            editItem: function(id) {
+                this.vibrate();
+                this.editingItemId = id;
+                
+                if (this.currentSection === 'tasks') {
+                    const task = this.tasks.find(t => t.id === id);
+                    this.elements.taskTitle.value = task.title;
+                    this.elements.taskDescription.value = task.description || '';
+                    this.elements.taskCategory.value = task.category;
+                    this.openModal('taskModal');
+                } else {
+                    const note = this.notes.find(n => n.id === id);
+                    this.elements.noteTitle.value = note.title;
+                    this.elements.noteContent.value = note.content || '';
+                    this.openModal('noteModal');
+                }
+            },
+
+            sortTasksByImportance: function(tasks) {
+                const priorityOrder = {
+                    'urgent-important': 0,
+                    'not-urgent-important': 1,
+                    'urgent-not-important': 2,
+                    'not-urgent-not-important': 3
+                };
+                
+                return [...tasks].sort((a, b) => {
+                    if (a.completed !== b.completed) {
+                        return a.completed ? 1 : -1;
+                    }
+                    return priorityOrder[a.category] - priorityOrder[b.category];
+                });
+            },
+
+            renderItems: function() {
+                let items = this.currentSection === 'tasks' ? this.tasks : this.notes;
+                
+                if (this.currentSection === 'tasks') {
+                    items = this.sortTasksByImportance(items);
                     
-                    if (this.currentSection === 'tasks') {
-                        items = this.sortTasksByImportance(items);
-                        
-                        if (this.currentCategory !== 'all') {
-                            items = items.filter(task => task.category === this.currentCategory);
-                        }
-                        
-                        const completedTasks = items.filter(task => task.completed);
-                        const incompleteTasks = items.filter(task => !task.completed);
-                        items = this.showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
+                    if (this.currentCategory !== 'all') {
+                        items = items.filter(task => task.category === this.currentCategory);
                     }
+                    
+                    const completedTasks = items.filter(task => task.completed);
+                    const incompleteTasks = items.filter(task => !task.completed);
+                    items = this.showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
+                }
 
-                    if (items.length === 0) {
-                        this.elements.itemsContainer.innerHTML = `
-                            <div class="empty-state">
-                                ${this.currentSection === 'tasks' ? 
-                                    (this.showCompleted ? 'Нет задач' : 'Нет активных задач') : 
-                                    'Нет заметок'}
-                            </div>
-                        `;
-                        return;
-                    }
-
-                    if (this.currentSection === 'notes') {
-                        this.renderNotesGrid(items);
-                    } else {
-                        this.renderTasksList(items);
-                    }
-                },
-
-                renderTasksList: function(items) {
-                    this.elements.itemsContainer.innerHTML = items.map(item => {
-                        const dateText = this.currentSection === 'tasks' && item.completed && item.completedAt ?
-                            `Создано: ${this.formatDate(item.createdAt)}\nВыполнено: ${this.formatDate(item.completedAt)}` :
-                            `Создано: ${this.formatDate(item.createdAt)}`;
-
-                        return `
-                            <div class="item-card task-card ${item.completed ? 'completed' : ''}" 
-                                 style="border-left-color: var(--${item.category})"
-                                 onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                <div class="card-content">
-                                    <h3>${item.title}</h3>
-                                    ${item.description ? `<p>${item.description}</p>` : ''}
-                                    <div class="card-date">${dateText}</div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                },
-
-                renderNotesGrid: function(items) {
+                if (items.length === 0) {
                     this.elements.itemsContainer.innerHTML = `
-                        <div class="notes-grid">
-                            ${items.map(item => {
-                                const dateText = `Создано: ${this.formatDate(item.createdAt)}`;
-                                
-                                return `
-                                    <div class="note-card"
-                                         onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                        <div class="card-content">
-                                            <h3>${item.title}</h3>
-                                            ${item.content ? `<p>${item.content}</p>` : ''}
-                                            <div class="card-date">${dateText}</div>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
+                        <div class="empty-state">
+                            ${this.currentSection === 'tasks' ? 
+                                (this.showCompleted ? 'Нет задач' : 'Нет активных задач') : 
+                                'Нет заметок'}
                         </div>
                     `;
+                    return;
                 }
-            };
 
-            app.init();
-            
-            window.app = app;
-        });
-    </script>
-</body>
-</html>
+                if (this.currentSection === 'notes') {
+                    this.renderNotesGrid(items);
+                } else {
+                    this.renderTasksList(items);
+                }
+            },
+
+            renderTasksList: function(items) {
+                this.elements.itemsContainer.innerHTML = items.map(item => {
+                    const dateText = this.currentSection === 'tasks' && item.completed && item.completedAt ?
+                        `Создано: ${this.formatDate(item.createdAt)}\nВыполнено: ${this.formatDate(item.completedAt)}` :
+                        `Создано: ${this.formatDate(item.createdAt)}`;
+
+                    return `
+                        <div class="item-card task-card ${item.completed ? 'completed' : ''}" 
+                             style="border-left-color: var(--${item.category})"
+                             onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                            <div class="card-content">
+                                <h3>${item.title}</h3>
+                                ${item.description ? `<p>${item.description}</p>` : ''}
+                                <div class="card-date">${dateText}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            renderNotesGrid: function(items) {
+                this.elements.itemsContainer.innerHTML = `
+                    <div class="notes-grid">
+                        ${items.map(item => {
+                            const dateText = `Создано: ${this.formatDate(item.createdAt)}`;
+                            
+                            return `
+                                <div class="note-card"
+                                     onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                                    <div class="card-content">
+                                        <h3>${item.title}</h3>
+                                        ${item.content ? `<p>${item.content}</p>` : ''}
+                                        <div class="card-date">${dateText}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            }
+        };
+
+        app.init();
+        
+        window.app = app;
+    });
