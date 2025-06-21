@@ -548,795 +548,705 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const app = {
-                webApp: null,
-                currentSection: 'tasks',
-                showCompleted: false,
-                currentCategory: 'all',
-                editingItemId: null,
-                currentFullViewItem: null,
-                tasks: [],
-                notes: [],
-                isDraggingCategories: false,
-                startX: 0,
-                scrollLeft: 0,
-                MAX_ITEMS_PER_BATCH: 50,
+document.addEventListener('DOMContentLoaded', function() {
+    const app = {
+        webApp: null,
+        currentSection: 'tasks',
+        showCompleted: false,
+        currentCategory: 'all',
+        editingItemId: null,
+        currentFullViewItem: null,
+        tasks: [],
+        notes: [],
+        isDraggingCategories: false,
+        startX: 0,
+        scrollLeft: 0,
 
-                init: function() {
-                    this.initTelegramWebApp();
-                    this.initElements();
-                    this.initEventListeners();
-                    this.loadData();
-                },
+        init: function() {
+            this.initTelegramWebApp();
+            this.initElements();
+            this.initEventListeners();
+            this.loadData();
+        },
 
-                initTelegramWebApp: function() {
-                    if (window.Telegram && window.Telegram.WebApp) {
-                        try {
-                            this.webApp = window.Telegram.WebApp;
-                            this.webApp.expand();
-                            this.webApp.enableClosingConfirmation();
-                            
-                            document.body.setAttribute('data-theme', this.webApp.colorScheme);
-                            
-                            const bgColor = this.webApp.colorScheme === 'light' ? '#ffffff' : '#000000';
-                            this.webApp.setBackgroundColor(bgColor);
-                            this.webApp.setHeaderColor(bgColor);
-                            
-                            if (this.webApp.lockOrientation) {
-                                this.webApp.lockOrientation('portrait');
-                            }
-                        } catch (e) {
-                            console.error('Telegram WebApp initialization error:', e);
-                        }
+        initTelegramWebApp: function() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                try {
+                    this.webApp = window.Telegram.WebApp;
+                    this.webApp.expand();
+                    this.webApp.enableClosingConfirmation();
+                    
+                    document.body.setAttribute('data-theme', this.webApp.colorScheme);
+                    
+                    const bgColor = this.webApp.colorScheme === 'light' ? '#ffffff' : '#000000';
+                    this.webApp.setBackgroundColor(bgColor);
+                    this.webApp.setHeaderColor(bgColor);
+                    
+                    if (this.webApp.lockOrientation) {
+                        this.webApp.lockOrientation('portrait');
                     }
-                },
+                } catch (e) {
+                    console.error('Telegram WebApp initialization error:', e);
+                }
+            }
+        },
 
-                initElements: function() {
-                    this.elements = {
-                        content: document.getElementById('content'),
-                        categoriesContainer: document.getElementById('categoriesContainer'),
-                        categories: document.querySelector('.categories'),
-                        showCompletedBtn: document.getElementById('showCompleted'),
-                        itemsContainer: document.getElementById('items-container'),
-                        addButton: document.getElementById('addButton'),
-                        navItems: document.querySelectorAll('.nav-item'),
-                        categoryButtons: document.querySelectorAll('.category'),
-                        taskModal: document.getElementById('taskModal'),
-                        taskTitle: document.getElementById('taskTitle'),
-                        taskDescription: document.getElementById('taskDescription'),
-                        taskCategory: document.getElementById('taskCategory'),
-                        cancelTask: document.getElementById('cancelTask'),
-                        saveTask: document.getElementById('saveTask'),
-                        noteModal: document.getElementById('noteModal'),
-                        noteTitle: document.getElementById('noteTitle'),
-                        noteContent: document.getElementById('noteContent'),
-                        cancelNote: document.getElementById('cancelNote'),
-                        saveNote: document.getElementById('saveNote'),
-                        fullView: document.getElementById('fullView'),
-                        fullViewTitle: document.getElementById('fullViewTitle'),
-                        fullViewContent: document.getElementById('fullViewContent'),
-                        fullViewDate: document.getElementById('fullViewDate'),
-                        fullViewActions: document.getElementById('fullViewActions'),
-                        storageLimitWarning: document.getElementById('storageLimitWarning')
-                    };
-                },
+        initElements: function() {
+            this.elements = {
+                content: document.getElementById('content'),
+                categoriesContainer: document.getElementById('categoriesContainer'),
+                categories: document.querySelector('.categories'),
+                showCompletedBtn: document.getElementById('showCompleted'),
+                itemsContainer: document.getElementById('items-container'),
+                addButton: document.getElementById('addButton'),
+                navItems: document.querySelectorAll('.nav-item'),
+                categoryButtons: document.querySelectorAll('.category'),
+                taskModal: document.getElementById('taskModal'),
+                taskTitle: document.getElementById('taskTitle'),
+                taskDescription: document.getElementById('taskDescription'),
+                taskCategory: document.getElementById('taskCategory'),
+                cancelTask: document.getElementById('cancelTask'),
+                saveTask: document.getElementById('saveTask'),
+                noteModal: document.getElementById('noteModal'),
+                noteTitle: document.getElementById('noteTitle'),
+                noteContent: document.getElementById('noteContent'),
+                cancelNote: document.getElementById('cancelNote'),
+                saveNote: document.getElementById('saveNote'),
+                fullView: document.getElementById('fullView'),
+                fullViewTitle: document.getElementById('fullViewTitle'),
+                fullViewContent: document.getElementById('fullViewContent'),
+                fullViewDate: document.getElementById('fullViewDate'),
+                fullViewActions: document.getElementById('fullViewActions'),
+                storageLimitWarning: document.getElementById('storageLimitWarning')
+            };
+        },
 
-                loadData: function() {
-                    const userId = this.getUserId();
-                    
-                    // Загружаем задачи
-                    this.loadBatchedData(`${userId}_tasks`, 'tasks', (items) => {
-                        this.tasks = items;
-                        
-                        // Загружаем заметки
-                        this.loadBatchedData(`${userId}_notes`, 'notes', (items) => {
-                            this.notes = items;
-                            this.updateUI();
-                        });
-                    });
-                },
+        initEventListeners: function() {
+            const self = this;
 
-                loadBatchedData: function(baseKey, type, callback) {
-                    let allItems = [];
-                    let batchIndex = 0;
-                    let batchesToLoad = 0;
-                    let batchesLoaded = 0;
-                    
-                    // Сначала узнаем сколько всего пакетов
-                    this.webApp.CloudStorage.getItem(`${baseKey}_count`, (err, countData) => {
-                        if (err) {
-                            console.error(`Error loading ${type} batch count:`, err);
-                            // Если не удалось загрузить счетчик, пробуем загрузить как старый формат
-                            this.webApp.CloudStorage.getItem(baseKey, (err, data) => {
-                                if (!err && data) {
-                                    try {
-                                        const items = JSON.parse(data);
-                                        if (Array.isArray(items)) {
-                                            allItems = items;
-                                        }
-                                    } catch (e) {
-                                        console.error(`Error parsing ${type} data:`, e);
-                                    }
-                                }
-                                callback(allItems);
-                            });
-                            return;
-                        }
-                        
-                        batchesToLoad = parseInt(countData) || 0;
-                        if (batchesToLoad === 0) {
-                            callback(allItems);
-                            return;
-                        }
-                        
-                        // Загружаем все пакеты
-                        for (let i = 0; i < batchesToLoad; i++) {
-                            this.webApp.CloudStorage.getItem(`${baseKey}_${i}`, (err, batchData) => {
-                                batchesLoaded++;
-                                if (!err && batchData) {
-                                    try {
-                                        const batchItems = JSON.parse(batchData);
-                                        if (Array.isArray(batchItems)) {
-                                            allItems = allItems.concat(batchItems);
-                                        }
-                                    } catch (e) {
-                                        console.error(`Error parsing ${type} batch ${i}:`, e);
-                                    }
-                                }
-                                
-                                if (batchesLoaded >= batchesToLoad) {
-                                    callback(allItems);
-                                }
-                            });
-                        }
-                    });
-                },
+            this.elements.navItems.forEach(function(item) {
+                item.addEventListener('click', function() {
+                    self.switchSection(item.dataset.section);
+                });
+            });
 
-                saveData: function(callback) {
-                    const userId = this.getUserId();
-                    
-                    // Сохраняем задачи
-                    this.saveBatchedData(`${userId}_tasks`, this.tasks, (err) => {
-                        if (err) {
-                            this.showStorageLimitWarning('tasks');
-                            return;
-                        }
-                        
-                        // Сохраняем заметки
-                        this.saveBatchedData(`${userId}_notes`, this.notes, (err) => {
-                            if (err) {
-                                this.showStorageLimitWarning('notes');
-                                return;
-                            }
-                            
-                            this.updateUI();
-                            if (callback) callback();
-                        });
-                    });
-                },
+            this.elements.addButton.addEventListener('click', function() {
+                if (self.currentSection === 'tasks') {
+                    self.elements.taskTitle.value = '';
+                    self.elements.taskDescription.value = '';
+                    self.elements.taskCategory.value = self.currentCategory === 'all' ? 
+                        'urgent-important' : self.currentCategory;
+                    self.openModal('taskModal');
+                } else {
+                    self.elements.noteTitle.value = '';
+                    self.elements.noteContent.value = '';
+                    self.openModal('noteModal');
+                }
+            });
 
-                saveBatchedData: function(baseKey, items, callback) {
-                    const batches = [];
-                    const batchCount = Math.ceil(items.length / this.MAX_ITEMS_PER_BATCH);
-                    
-                    // Разбиваем на пакеты
-                    for (let i = 0; i < batchCount; i++) {
-                        const start = i * this.MAX_ITEMS_PER_BATCH;
-                        const end = start + this.MAX_ITEMS_PER_BATCH;
-                        batches.push(items.slice(start, end));
+            this.elements.showCompletedBtn.addEventListener('click', function() {
+                self.toggleShowCompleted();
+            });
+
+            this.elements.categoryButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    self.currentCategory = button.dataset.category;
+                    self.updateUI();
+                });
+            });
+
+            this.elements.cancelTask.addEventListener('click', function() {
+                self.closeModal('taskModal');
+                if (self.currentFullViewItem) {
+                    self.openFullView(self.currentFullViewItem);
+                }
+            });
+
+            this.elements.saveTask.addEventListener('click', function() {
+                const title = self.elements.taskTitle.value.trim();
+                if (!title) {
+                    self.showAlert('Введите название задачи');
+                    return;
+                }
+                self.saveTask();
+                self.closeModal('taskModal');
+                self.closeFullView();
+            });
+
+            this.elements.cancelNote.addEventListener('click', function() {
+                self.closeModal('noteModal');
+                if (self.currentFullViewItem) {
+                    self.openFullView(self.currentFullViewItem);
+                }
+            });
+
+            this.elements.saveNote.addEventListener('click', function() {
+                const title = self.elements.noteTitle.value.trim();
+                if (!title) {
+                    self.showAlert('Введите заголовок заметки');
+                    return;
+                }
+                self.saveNote();
+                self.closeModal('noteModal');
+                self.closeFullView();
+            });
+
+            this.elements.categoriesContainer.addEventListener('mousedown', function(e) {
+                self.isDraggingCategories = true;
+                self.startX = e.pageX - self.elements.categoriesContainer.offsetLeft;
+                self.scrollLeft = self.elements.categoriesContainer.scrollLeft;
+                self.elements.categoriesContainer.style.cursor = 'grabbing';
+                e.preventDefault();
+            });
+
+            this.elements.categoriesContainer.addEventListener('mousemove', function(e) {
+                if (!self.isDraggingCategories) return;
+                const x = e.pageX - self.elements.categoriesContainer.offsetLeft;
+                const walk = (x - self.startX) * 2;
+                self.elements.categoriesContainer.scrollLeft = self.scrollLeft - walk;
+            });
+
+            this.elements.categoriesContainer.addEventListener('mouseup', function() {
+                self.isDraggingCategories = false;
+                self.elements.categoriesContainer.style.cursor = 'grab';
+            });
+
+            this.elements.categoriesContainer.addEventListener('mouseleave', function() {
+                self.isDraggingCategories = false;
+                self.elements.categoriesContainer.style.cursor = 'grab';
+            });
+
+            this.elements.categoriesContainer.addEventListener('touchstart', function(e) {
+                self.isDraggingCategories = true;
+                self.startX = e.touches[0].pageX - self.elements.categoriesContainer.offsetLeft;
+                self.scrollLeft = self.elements.categoriesContainer.scrollLeft;
+                e.preventDefault();
+            });
+
+            this.elements.categoriesContainer.addEventListener('touchmove', function(e) {
+                if (!self.isDraggingCategories) return;
+                const x = e.touches[0].pageX - self.elements.categoriesContainer.offsetLeft;
+                const walk = (x - self.startX) * 2;
+                self.elements.categoriesContainer.scrollLeft = self.scrollLeft - walk;
+            });
+
+            this.elements.categoriesContainer.addEventListener('touchend', function() {
+                self.isDraggingCategories = false;
+            });
+
+            this.elements.categoriesContainer.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                self.elements.categoriesContainer.scrollLeft += e.deltaY;
+            });
+        },
+
+        loadData: function() {
+            const userId = this.getUserId();
+            
+            this.webApp.CloudStorage.getItem(`${userId}_all_data`, (err, data) => {
+                if (err) {
+                    console.error('Error loading data:', err);
+                    this.tasks = [];
+                    this.notes = [];
+                } else {
+                    try {
+                        const parsedData = data ? JSON.parse(this.decompressData(data)) : {};
+                        this.tasks = parsedData.tasks || [];
+                        this.notes = parsedData.notes || [];
+                    } catch (e) {
+                        console.error('Error parsing data:', e);
+                        this.tasks = [];
+                        this.notes = [];
                     }
-                    
-                    // Сначала сохраняем количество пакетов
-                    this.webApp.CloudStorage.setItem(
-                        `${baseKey}_count`,
-                        batchCount.toString(),
-                        (err) => {
-                            if (err) {
-                                callback(err);
-                                return;
-                            }
-                            
-                            // Затем сохраняем каждый пакет
-                            let savedCount = 0;
-                            let saveError = null;
-                            
-                            batches.forEach((batch, index) => {
-                                this.webApp.CloudStorage.setItem(
-                                    `${baseKey}_${index}`,
-                                    JSON.stringify(batch),
-                                    (err) => {
-                                        if (err) {
-                                            console.error(`Error saving ${baseKey} batch ${index}:`, err);
-                                            saveError = err;
-                                        }
-                                        
-                                        savedCount++;
-                                        
-                                        if (savedCount >= batches.length) {
-                                            callback(saveError);
-                                        }
-                                    }
-                                );
-                            });
-                        }
-                    );
-                },
+                }
+                this.updateUI();
+            });
+        },
 
-                getUserId: function() {
-                    return `tg_${this.webApp.initDataUnsafe?.user?.id || 'unknown'}`;
-                },
-
-                initEventListeners: function() {
-                    this.elements.navItems.forEach(item => {
-                        item.addEventListener('click', () => {
-                            this.switchSection(item.dataset.section);
-                        });
-                    });
-
-                    this.elements.addButton.addEventListener('click', () => {
-                        if (this.currentSection === 'tasks') {
-                            this.elements.taskTitle.value = '';
-                            this.elements.taskDescription.value = '';
-                            this.elements.taskCategory.value = this.currentCategory === 'all' ? 
-                                'urgent-important' : this.currentCategory;
-                            this.openModal('taskModal');
-                        } else {
-                            this.elements.noteTitle.value = '';
-                            this.elements.noteContent.value = '';
-                            this.openModal('noteModal');
-                        }
-                    });
-
-                    this.elements.showCompletedBtn.addEventListener('click', () => {
-                        this.toggleShowCompleted();
-                    });
-
-                    this.elements.categoryButtons.forEach(button => {
-                        button.addEventListener('click', () => {
-                            this.currentCategory = button.dataset.category;
-                            this.updateUI();
-                        });
-                    });
-
-                    this.elements.cancelTask.addEventListener('click', () => {
-                        this.closeModal('taskModal');
-                        if (this.currentFullViewItem) {
-                            this.openFullView(this.currentFullViewItem);
-                        }
-                    });
-
-                    this.elements.saveTask.addEventListener('click', () => {
-                        const title = this.elements.taskTitle.value.trim();
-                        if (!title) {
-                            this.showAlert('Введите название задачи');
-                            return;
-                        }
-                        this.saveTask();
-                        this.closeModal('taskModal');
-                        this.closeFullView();
-                    });
-
-                    this.elements.cancelNote.addEventListener('click', () => {
-                        this.closeModal('noteModal');
-                        if (this.currentFullViewItem) {
-                            this.openFullView(this.currentFullViewItem);
-                        }
-                    });
-
-                    this.elements.saveNote.addEventListener('click', () => {
-                        const title = this.elements.noteTitle.value.trim();
-                        if (!title) {
-                            this.showAlert('Введите заголовок заметки');
-                            return;
-                        }
-                        this.saveNote();
-                        this.closeModal('noteModal');
-                        this.closeFullView();
-                    });
-
-                    // Обработчики для прокрутки категорий
-                    this.elements.categoriesContainer.addEventListener('mousedown', (e) => {
-                        this.isDraggingCategories = true;
-                        this.startX = e.pageX - this.elements.categoriesContainer.offsetLeft;
-                        this.scrollLeft = this.elements.categoriesContainer.scrollLeft;
-                        this.elements.categoriesContainer.style.cursor = 'grabbing';
-                        e.preventDefault();
-                    });
-
-                    this.elements.categoriesContainer.addEventListener('mousemove', (e) => {
-                        if (!this.isDraggingCategories) return;
-                        const x = e.pageX - this.elements.categoriesContainer.offsetLeft;
-                        const walk = (x - this.startX) * 2;
-                        this.elements.categoriesContainer.scrollLeft = this.scrollLeft - walk;
-                    });
-
-                    this.elements.categoriesContainer.addEventListener('mouseup', () => {
-                        this.isDraggingCategories = false;
-                        this.elements.categoriesContainer.style.cursor = 'grab';
-                    });
-
-                    this.elements.categoriesContainer.addEventListener('mouseleave', () => {
-                        this.isDraggingCategories = false;
-                        this.elements.categoriesContainer.style.cursor = 'grab';
-                    });
-
-                    // Обработчики для сенсорных устройств
-                    this.elements.categoriesContainer.addEventListener('touchstart', (e) => {
-                        this.isDraggingCategories = true;
-                        this.startX = e.touches[0].pageX - this.elements.categoriesContainer.offsetLeft;
-                        this.scrollLeft = this.elements.categoriesContainer.scrollLeft;
-                        e.preventDefault();
-                    });
-
-                    this.elements.categoriesContainer.addEventListener('touchmove', (e) => {
-                        if (!this.isDraggingCategories) return;
-                        const x = e.touches[0].pageX - this.elements.categoriesContainer.offsetLeft;
-                        const walk = (x - this.startX) * 2;
-                        this.elements.categoriesContainer.scrollLeft = this.scrollLeft - walk;
-                    });
-
-                    this.elements.categoriesContainer.addEventListener('touchend', () => {
-                        this.isDraggingCategories = false;
-                    });
-
-                    this.elements.categoriesContainer.addEventListener('wheel', (e) => {
-                        e.preventDefault();
-                        this.elements.categoriesContainer.scrollLeft += e.deltaY;
-                    });
-                },
-
-                updateUI: function() {
-                    this.renderItems();
-                    this.updateCategoryCounts();
-                    this.updateCategorySelection();
-                    this.updateSectionSelection();
-                },
-
-                updateCategoryCounts: function() {
-                    const categories = [
-                        { value: 'all', text: 'Все задачи' },
-                        { value: 'urgent-important', text: 'Срочно, важно' },
-                        { value: 'not-urgent-important', text: 'Не срочно, важно' },
-                        { value: 'urgent-not-important', text: 'Срочно, не важно' },
-                        { value: 'not-urgent-not-important', text: 'Не срочно, не важно' }
-                    ];
-                    
-                    this.elements.categoryButtons.forEach((button, index) => {
-                        const category = categories[index];
-                        const count = this.getTaskCount(category.value);
-                        
-                        const oldCount = button.querySelector('.category-count');
-                        if (oldCount) {
-                            button.removeChild(oldCount);
-                        }
-                        
-                        button.textContent = category.text;
-                        const countSpan = document.createElement('span');
-                        countSpan.className = 'category-count';
-                        countSpan.textContent = `(${count})`;
-                        button.appendChild(countSpan);
-                    });
-                },
-
-                getTaskCount: function(category) {
-                    let tasksToCount = this.tasks;
-                    
-                    if (!this.showCompleted) {
-                        tasksToCount = tasksToCount.filter(task => !task.completed);
+        saveData: function(callback) {
+            const userId = this.getUserId();
+            const dataToSave = {
+                tasks: this.tasks,
+                notes: this.notes,
+                version: 2
+            };
+            
+            const compressedData = this.compressData(JSON.stringify(dataToSave));
+            
+            this.webApp.CloudStorage.setItem(
+                `${userId}_all_data`,
+                compressedData,
+                (err) => {
+                    if (err) {
+                        console.error('Error saving data:', err);
+                        this.showStorageLimitWarning();
+                    } else {
+                        this.updateUI();
+                        if (callback) callback();
                     }
-                    
-                    if (category === 'all') {
-                        return tasksToCount.length;
-                    }
-                    return tasksToCount.filter(task => task.category === category).length;
-                },
+                }
+            );
+        },
 
-                updateCategorySelection: function() {
-                    this.elements.categoryButtons.forEach(button => {
-                        button.classList.toggle('active', 
-                            button.dataset.category === this.currentCategory
-                        );
-                    });
-                },
+        compressData: function(data) {
+            try {
+                return data
+                    .replace(/"id":"/g, 'i:')
+                    .replace(/"title":"/g, 't:')
+                    .replace(/"description":"/g, 'd:')
+                    .replace(/"content":"/g, 'c:')
+                    .replace(/"category":"/g, 'g:')
+                    .replace(/"completed":/g, 'o:')
+                    .replace(/"createdAt":/g, 'a:')
+                    .replace(/"completedAt":/g, 'm:')
+                    .replace(/"tasks":/g, 'x:')
+                    .replace(/"notes":/g, 'n:')
+                    .replace(/"version":/g, 'v:');
+            } catch (e) {
+                console.error('Compression error:', e);
+                return data;
+            }
+        },
 
-                updateSectionSelection: function() {
-                    this.elements.navItems.forEach(item => {
-                        item.classList.toggle('active', 
-                            item.dataset.section === this.currentSection
-                        );
-                    });
-                    
-                    this.elements.categoriesContainer.style.display = 
-                        this.currentSection === 'tasks' ? 'block' : 'none';
-                    this.elements.showCompletedBtn.style.display = 
-                        this.currentSection === 'tasks' ? 'block' : 'none';
-                },
+        decompressData: function(data) {
+            try {
+                return data
+                    .replace(/i:/g, '"id":"')
+                    .replace(/t:/g, '"title":"')
+                    .replace(/d:/g, '"description":"')
+                    .replace(/c:/g, '"content":"')
+                    .replace(/g:/g, '"category":"')
+                    .replace(/o:/g, '"completed":')
+                    .replace(/a:/g, '"createdAt":')
+                    .replace(/m:/g, '"completedAt":')
+                    .replace(/x:/g, '"tasks":')
+                    .replace(/n:/g, '"notes":')
+                    .replace(/v:/g, '"version":');
+            } catch (e) {
+                console.error('Decompression error:', e);
+                return data;
+            }
+        },
 
-                vibrate: function() {
-                    if (this.webApp?.HapticFeedback) {
-                        this.webApp.HapticFeedback.impactOccurred('medium');
-                    }
-                },
+        getUserId: function() {
+            return `tg_${this.webApp.initDataUnsafe?.user?.id || 'unknown'}`;
+        },
 
-                showAlert: function(message) {
-                    if (this.webApp?.showAlert) {
-                        this.webApp.showAlert(message);
-                    }
-                },
+        updateUI: function() {
+            this.renderItems();
+            this.updateCategoryCounts();
+            this.updateCategorySelection();
+            this.updateSectionSelection();
+        },
 
-                showStorageLimitWarning: function(type) {
-                    let message = '';
-                    switch(type) {
-                        case 'tasks':
-                            message = 'Достигнут лимит задач. Удалите старые задачи, чтобы добавить новые.';
-                            break;
-                        case 'notes':
-                            message = 'Достигнут лимит заметок. Удалите старые заметки, чтобы добавить новые.';
-                            break;
-                        default:
-                            message = 'Достигнут лимит хранилища. Удалите старые записи, чтобы добавить новые.';
-                    }
-                    
-                    this.elements.storageLimitWarning.textContent = message;
-                    this.elements.storageLimitWarning.style.display = 'block';
-                    
-                    setTimeout(() => {
-                        this.elements.storageLimitWarning.style.display = 'none';
-                    }, 5000);
-                },
+        updateCategoryCounts: function() {
+            const categories = [
+                { value: 'all', text: 'Все задачи' },
+                { value: 'urgent-important', text: 'Срочно, важно' },
+                { value: 'not-urgent-important', text: 'Не срочно, важно' },
+                { value: 'urgent-not-important', text: 'Срочно, не важно' },
+                { value: 'not-urgent-not-important', text: 'Не срочно, не важно' }
+            ];
+            
+            this.elements.categoryButtons.forEach((button, index) => {
+                const category = categories[index];
+                const count = this.getTaskCount(category.value);
+                
+                const oldCount = button.querySelector('.category-count');
+                if (oldCount) {
+                    button.removeChild(oldCount);
+                }
+                
+                button.textContent = category.text;
+                const countSpan = document.createElement('span');
+                countSpan.className = 'category-count';
+                countSpan.textContent = `(${count})`;
+                button.appendChild(countSpan);
+            });
+        },
 
-                showConfirmPopup: function(title, message, callback) {
-                    if (this.webApp?.showPopup) {
-                        this.webApp.showPopup({
-                            title: title,
-                            message: message,
-                            buttons: [
-                                { id: 'confirm', type: 'default', text: 'Да' },
-                                { id: 'cancel', type: 'cancel', text: 'Нет' }
-                            ]
-                        }, (buttonId) => {
-                            callback(buttonId === 'confirm');
-                        });
-                    }
-                },
+        getTaskCount: function(category) {
+            let tasksToCount = this.tasks;
+            
+            if (!this.showCompleted) {
+                tasksToCount = tasksToCount.filter(task => !task.completed);
+            }
+            
+            if (category === 'all') {
+                return tasksToCount.length;
+            }
+            return tasksToCount.filter(task => task.category === category).length;
+        },
 
-                switchSection: function(section) {
-                    this.vibrate();
-                    this.currentSection = section;
-                    this.currentCategory = 'all';
-                    this.showCompleted = false;
-                    this.elements.showCompletedBtn.textContent = 'Показать выполненные задачи';
-                    this.updateUI();
-                },
+        updateCategorySelection: function() {
+            this.elements.categoryButtons.forEach(button => {
+                button.classList.toggle('active', 
+                    button.dataset.category === this.currentCategory
+                );
+            });
+        },
 
-                toggleShowCompleted: function() {
-                    this.vibrate();
-                    this.showCompleted = !this.showCompleted;
-                    this.elements.showCompletedBtn.textContent = this.showCompleted ? 
-                        'Скрыть выполненные задачи' : 'Показать выполненные задачи';
-                    this.updateUI();
-                },
+        updateSectionSelection: function() {
+            this.elements.navItems.forEach(item => {
+                item.classList.toggle('active', 
+                    item.dataset.section === this.currentSection
+                );
+            });
+            
+            this.elements.categoriesContainer.style.display = 
+                this.currentSection === 'tasks' ? 'block' : 'none';
+            this.elements.showCompletedBtn.style.display = 
+                this.currentSection === 'tasks' ? 'block' : 'none';
+        },
 
-                openModal: function(modalId) {
-                    this.vibrate();
-                    this.elements[modalId].style.display = 'flex';
-                },
+        vibrate: function() {
+            if (this.webApp?.HapticFeedback) {
+                this.webApp.HapticFeedback.impactOccurred('medium');
+            }
+        },
 
-                closeModal: function(modalId) {
-                    this.vibrate();
-                    this.elements[modalId].style.display = 'none';
-                    this.editingItemId = null;
-                },
+        showAlert: function(message) {
+            if (this.webApp?.showAlert) {
+                this.webApp.showAlert(message);
+            }
+        },
 
-                openFullView: function(item) {
-                    this.vibrate();
-                    this.currentFullViewItem = item;
-                    
-                    this.elements.fullViewTitle.textContent = item.title;
-                    
-                    const content = this.currentSection === 'tasks' ? 
-                        item.description : item.content;
-                    this.elements.fullViewContent.textContent = content || 'Нет содержимого';
-                    
-                    let dateText = `Создано: ${this.formatDate(item.createdAt)}`;
-                    if (this.currentSection === 'tasks' && item.completed && item.completedAt) {
-                        dateText += `\nВыполнено: ${this.formatDate(item.completedAt)}`;
-                    }
-                    this.elements.fullViewDate.textContent = dateText;
-                    
-                    this.elements.fullViewActions.innerHTML = '';
-                    
-                    if (this.currentSection === 'tasks') {
-                        const completeButton = document.createElement('button');
-                        completeButton.className = 'full-view-action-button';
-                        completeButton.innerHTML = item.completed ? '↺' : '✓';
-                        completeButton.onclick = (e) => {
-                            e.stopPropagation();
-                            this.toggleTaskComplete(item.id);
+        showStorageLimitWarning: function() {
+            const message = 'Достигнут лимит хранилища. Удалите старые записи, чтобы добавить новые.';
+            
+            this.elements.storageLimitWarning.textContent = message;
+            this.elements.storageLimitWarning.style.display = 'block';
+            
+            setTimeout(() => {
+                this.elements.storageLimitWarning.style.display = 'none';
+            }, 5000);
+        },
+
+        showConfirmPopup: function(title, message, callback) {
+            if (this.webApp?.showPopup) {
+                this.webApp.showPopup({
+                    title: title,
+                    message: message,
+                    buttons: [
+                        { id: 'confirm', type: 'default', text: 'Да' },
+                        { id: 'cancel', type: 'cancel', text: 'Нет' }
+                    ]
+                }, (buttonId) => {
+                    callback(buttonId === 'confirm');
+                });
+            }
+        },
+
+        switchSection: function(section) {
+            this.vibrate();
+            this.currentSection = section;
+            this.currentCategory = 'all';
+            this.showCompleted = false;
+            this.elements.showCompletedBtn.textContent = 'Показать выполненные задачи';
+            this.updateUI();
+        },
+
+        toggleShowCompleted: function() {
+            this.vibrate();
+            this.showCompleted = !this.showCompleted;
+            this.elements.showCompletedBtn.textContent = this.showCompleted ? 
+                'Скрыть выполненные задачи' : 'Показать выполненные задачи';
+            this.updateUI();
+        },
+
+        openModal: function(modalId) {
+            this.vibrate();
+            this.elements[modalId].style.display = 'flex';
+        },
+
+        closeModal: function(modalId) {
+            this.vibrate();
+            this.elements[modalId].style.display = 'none';
+            this.editingItemId = null;
+        },
+
+        openFullView: function(item) {
+            this.vibrate();
+            this.currentFullViewItem = item;
+            
+            this.elements.fullViewTitle.textContent = item.title;
+            
+            const content = this.currentSection === 'tasks' ? 
+                item.description : item.content;
+            this.elements.fullViewContent.textContent = content || 'Нет содержимого';
+            
+            let dateText = `Создано: ${this.formatDate(item.createdAt)}`;
+            if (this.currentSection === 'tasks' && item.completed && item.completedAt) {
+                dateText += `\nВыполнено: ${this.formatDate(item.completedAt)}`;
+            }
+            this.elements.fullViewDate.textContent = dateText;
+            
+            this.elements.fullViewActions.innerHTML = '';
+            
+            if (this.currentSection === 'tasks') {
+                const completeButton = document.createElement('button');
+                completeButton.className = 'full-view-action-button';
+                completeButton.innerHTML = item.completed ? '↺' : '✓';
+                completeButton.onclick = (e) => {
+                    e.stopPropagation();
+                    this.toggleTaskComplete(item.id);
+                    this.closeFullView();
+                };
+                this.elements.fullViewActions.appendChild(completeButton);
+            }
+            
+            const editButton = document.createElement('button');
+            editButton.className = 'full-view-action-button';
+            editButton.innerHTML = '✎';
+            editButton.onclick = (e) => {
+                e.stopPropagation();
+                this.editItem(item.id);
+            };
+            this.elements.fullViewActions.appendChild(editButton);
+            
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'full-view-action-button delete';
+            deleteButton.innerHTML = '🗑️';
+            deleteButton.onclick = (e) => {
+                e.stopPropagation();
+                this.showConfirmPopup(
+                    'Удаление',
+                    'Вы уверены, что хотите удалить эту запись?',
+                    (confirmed) => {
+                        if (confirmed) {
+                            this.deleteItem(item.id);
                             this.closeFullView();
-                        };
-                        this.elements.fullViewActions.appendChild(completeButton);
-                    }
-                    
-                    const editButton = document.createElement('button');
-                    editButton.className = 'full-view-action-button';
-                    editButton.innerHTML = '✎';
-                    editButton.onclick = (e) => {
-                        e.stopPropagation();
-                        this.editItem(item.id);
-                    };
-                    this.elements.fullViewActions.appendChild(editButton);
-                    
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'full-view-action-button delete';
-                    deleteButton.innerHTML = '🗑️';
-                    deleteButton.onclick = (e) => {
-                        e.stopPropagation();
-                        this.showConfirmPopup(
-                            'Удаление',
-                            'Вы уверены, что хотите удалить эту запись?',
-                            (confirmed) => {
-                                if (confirmed) {
-                                    this.deleteItem(item.id);
-                                    this.closeFullView();
-                                }
-                            }
-                        );
-                    };
-                    this.elements.fullViewActions.appendChild(deleteButton);
-                    
-                    this.elements.fullView.style.display = 'block';
-                    
-                    if (this.webApp?.BackButton) {
-                        this.webApp.BackButton.show();
-                        this.webApp.BackButton.onClick(() => {
-                            this.closeFullView();
-                        });
-                    }
-                },
-
-                closeFullView: function() {
-                    this.vibrate();
-                    this.elements.fullView.style.display = 'none';
-                    this.currentFullViewItem = null;
-                    
-                    if (this.webApp?.BackButton) {
-                        this.webApp.BackButton.offClick();
-                        this.webApp.BackButton.hide();
-                    }
-                },
-
-                formatDate: function(timestamp) {
-                    const date = new Date(timestamp);
-                    return date.toLocaleString();
-                },
-
-                saveTask: function() {
-                    this.vibrate();
-                    const title = this.elements.taskTitle.value.trim();
-                    const description = this.elements.taskDescription.value.trim();
-                    const category = this.elements.taskCategory.value;
-
-                    if (!title) return;
-
-                    const task = {
-                        id: this.editingItemId || Date.now().toString(),
-                        title,
-                        description,
-                        category,
-                        completed: false,
-                        createdAt: this.editingItemId ? 
-                            (this.tasks.find(t => t.id === this.editingItemId)?.createdAt || Date.now()) : 
-                            Date.now()
-                    };
-
-                    if (this.editingItemId) {
-                        const existingTask = this.tasks.find(t => t.id === this.editingItemId);
-                        if (existingTask) {
-                            task.completed = existingTask.completed;
-                            task.completedAt = existingTask.completedAt;
                         }
-                        this.tasks = this.tasks.map(t => t.id === this.editingItemId ? task : t);
-                    } else {
-                        this.tasks.unshift(task);
                     }
+                );
+            };
+            this.elements.fullViewActions.appendChild(deleteButton);
+            
+            this.elements.fullView.style.display = 'block';
+            
+            if (this.webApp?.BackButton) {
+                this.webApp.BackButton.show();
+                this.webApp.BackButton.onClick(() => {
+                    this.closeFullView();
+                });
+            }
+        },
 
-                    this.saveData();
-                },
+        closeFullView: function() {
+            this.vibrate();
+            this.elements.fullView.style.display = 'none';
+            this.currentFullViewItem = null;
+            
+            if (this.webApp?.BackButton) {
+                this.webApp.BackButton.offClick();
+                this.webApp.BackButton.hide();
+            }
+        },
 
-                saveNote: function() {
-                    this.vibrate();
-                    const title = this.elements.noteTitle.value.trim();
-                    const content = this.elements.noteContent.value.trim();
+        formatDate: function(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        },
 
-                    if (!title) return;
+        saveTask: function() {
+            this.vibrate();
+            const title = this.elements.taskTitle.value.trim();
+            const description = this.elements.taskDescription.value.trim();
+            const category = this.elements.taskCategory.value;
 
-                    const note = {
-                        id: this.editingItemId || Date.now().toString(),
-                        title,
-                        content,
-                        createdAt: this.editingItemId ? 
-                            (this.notes.find(n => n.id === this.editingItemId)?.createdAt || Date.now()) : 
-                            Date.now()
+            if (!title) return;
+
+            const task = {
+                id: this.editingItemId || Date.now().toString(),
+                title: title,
+                description: description,
+                category: category,
+                completed: false,
+                createdAt: this.editingItemId ? 
+                    (this.tasks.find(t => t.id === this.editingItemId)?.createdAt || Date.now()) : 
+                    Date.now()
+            };
+
+            if (this.editingItemId) {
+                const existingTask = this.tasks.find(t => t.id === this.editingItemId);
+                if (existingTask) {
+                    task.completed = existingTask.completed;
+                    task.completedAt = existingTask.completedAt;
+                }
+                this.tasks = this.tasks.map(t => t.id === this.editingItemId ? task : t);
+            } else {
+                this.tasks.unshift(task);
+            }
+
+            this.saveData();
+        },
+
+        saveNote: function() {
+            this.vibrate();
+            const title = this.elements.noteTitle.value.trim();
+            const content = this.elements.noteContent.value.trim();
+
+            if (!title) return;
+
+            const note = {
+                id: this.editingItemId || Date.now().toString(),
+                title: title,
+                content: content,
+                createdAt: this.editingItemId ? 
+                    (this.notes.find(n => n.id === this.editingItemId)?.createdAt || Date.now()) : 
+                    Date.now()
+            };
+
+            if (this.editingItemId) {
+                this.notes = this.notes.map(n => n.id === this.editingItemId ? note : n);
+            } else {
+                this.notes.unshift(note);
+            }
+
+            this.saveData();
+        },
+
+        toggleTaskComplete: function(taskId) {
+            this.vibrate();
+            this.tasks = this.tasks.map(task => {
+                if (task.id === taskId) {
+                    const completed = !task.completed;
+                    return {
+                        ...task,
+                        completed: completed,
+                        completedAt: completed ? Date.now() : undefined
                     };
+                }
+                return task;
+            });
+            
+            this.saveData();
+        },
 
-                    if (this.editingItemId) {
-                        this.notes = this.notes.map(n => n.id === this.editingItemId ? note : n);
-                    } else {
-                        this.notes.unshift(note);
-                    }
+        deleteItem: function(id) {
+            this.vibrate();
+            if (this.currentSection === 'tasks') {
+                this.tasks = this.tasks.filter(task => task.id !== id);
+            } else {
+                this.notes = this.notes.filter(note => note.id !== id);
+            }
+            
+            this.saveData();
+        },
 
-                    this.saveData();
-                },
+        editItem: function(id) {
+            this.vibrate();
+            this.editingItemId = id;
+            
+            if (this.currentSection === 'tasks') {
+                const task = this.tasks.find(t => t.id === id);
+                this.elements.taskTitle.value = task.title;
+                this.elements.taskDescription.value = task.description || '';
+                this.elements.taskCategory.value = task.category;
+                this.openModal('taskModal');
+            } else {
+                const note = this.notes.find(n => n.id === id);
+                this.elements.noteTitle.value = note.title;
+                this.elements.noteContent.value = note.content || '';
+                this.openModal('noteModal');
+            }
+        },
 
-                toggleTaskComplete: function(taskId) {
-                    this.vibrate();
-                    this.tasks = this.tasks.map(task => {
-                        if (task.id === taskId) {
-                            const completed = !task.completed;
-                            return {
-                                ...task,
-                                completed,
-                                completedAt: completed ? Date.now() : undefined
-                            };
-                        }
-                        return task;
-                    });
-                    
-                    this.saveData();
-                },
+        sortTasksByImportance: function(tasks) {
+            const priorityOrder = {
+                'urgent-important': 0,
+                'not-urgent-important': 1,
+                'urgent-not-important': 2,
+                'not-urgent-not-important': 3
+            };
+            
+            return [...tasks].sort((a, b) => {
+                if (a.completed !== b.completed) {
+                    return a.completed ? 1 : -1;
+                }
+                return priorityOrder[a.category] - priorityOrder[b.category];
+            });
+        },
 
-                deleteItem: function(id) {
-                    this.vibrate();
-                    if (this.currentSection === 'tasks') {
-                        this.tasks = this.tasks.filter(task => task.id !== id);
-                    } else {
-                        this.notes = this.notes.filter(note => note.id !== id);
-                    }
-                    
-                    this.saveData(() => {
-                        this.optimizeStorage();
-                    });
-                },
+        renderItems: function() {
+            let items = this.currentSection === 'tasks' ? this.tasks : this.notes;
+            
+            if (this.currentSection === 'tasks') {
+                items = this.sortTasksByImportance(items);
+                
+                if (this.currentCategory !== 'all') {
+                    items = items.filter(task => task.category === this.currentCategory);
+                }
+                
+                const completedTasks = items.filter(task => task.completed);
+                const incompleteTasks = items.filter(task => !task.completed);
+                items = this.showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
+            }
 
-                optimizeStorage: function() {
-                    const userId = this.getUserId();
-                    const types = ['tasks', 'notes'];
-                    
-                    types.forEach(type => {
-                        const baseKey = `${userId}_${type}`;
-                        const items = type === 'tasks' ? this.tasks : this.notes;
+            if (items.length === 0) {
+                this.elements.itemsContainer.innerHTML = `
+                    <div class="empty-state">
+                        ${this.currentSection === 'tasks' ? 
+                            (this.showCompleted ? 'Нет задач' : 'Нет активных задач') : 
+                            'Нет заметок'}
+                    </div>
+                `;
+                return;
+            }
+
+            if (this.currentSection === 'notes') {
+                this.renderNotesGrid(items);
+            } else {
+                this.renderTasksList(items);
+            }
+        },
+
+        renderTasksList: function(items) {
+            this.elements.itemsContainer.innerHTML = items.map(item => {
+                const dateText = this.currentSection === 'tasks' && item.completed && item.completedAt ?
+                    `Создано: ${this.formatDate(item.createdAt)}\nВыполнено: ${this.formatDate(item.completedAt)}` :
+                    `Создано: ${this.formatDate(item.createdAt)}`;
+
+                return `
+                    <div class="item-card task-card ${item.completed ? 'completed' : ''}" 
+                         style="border-left-color: var(--${item.category})"
+                         onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                        <div class="card-content">
+                            <h3>${item.title}</h3>
+                            ${item.description ? `<p>${item.description}</p>` : ''}
+                            <div class="card-date">${dateText}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        },
+
+        renderNotesGrid: function(items) {
+            this.elements.itemsContainer.innerHTML = `
+                <div class="notes-grid">
+                    ${items.map(item => {
+                        const dateText = `Создано: ${this.formatDate(item.createdAt)}`;
                         
-                        this.webApp.CloudStorage.getItem(`${baseKey}_count`, (err, countData) => {
-                            if (err || !countData) return;
-                            
-                            const currentBatchCount = parseInt(countData);
-                            const requiredBatchCount = Math.ceil(items.length / this.MAX_ITEMS_PER_BATCH);
-                            
-                            if (currentBatchCount > requiredBatchCount) {
-                                for (let i = requiredBatchCount; i < currentBatchCount; i++) {
-                                    this.webApp.CloudStorage.removeItem(`${baseKey}_${i}`);
-                                }
-                                this.webApp.CloudStorage.setItem(`${baseKey}_count`, requiredBatchCount.toString());
-                            }
-                        });
-                    });
-                },
-
-                editItem: function(id) {
-                    this.vibrate();
-                    this.editingItemId = id;
-                    
-                    if (this.currentSection === 'tasks') {
-                        const task = this.tasks.find(t => t.id === id);
-                        this.elements.taskTitle.value = task.title;
-                        this.elements.taskDescription.value = task.description || '';
-                        this.elements.taskCategory.value = task.category;
-                        this.openModal('taskModal');
-                    } else {
-                        const note = this.notes.find(n => n.id === id);
-                        this.elements.noteTitle.value = note.title;
-                        this.elements.noteContent.value = note.content || '';
-                        this.openModal('noteModal');
-                    }
-                },
-
-                sortTasksByImportance: function(tasks) {
-                    const priorityOrder = {
-                        'urgent-important': 0,
-                        'not-urgent-important': 1,
-                        'urgent-not-important': 2,
-                        'not-urgent-not-important': 3
-                    };
-                    
-                    return [...tasks].sort((a, b) => {
-                        if (a.completed !== b.completed) {
-                            return a.completed ? 1 : -1;
-                        }
-                        return priorityOrder[a.category] - priorityOrder[b.category];
-                    });
-                },
-
-                renderItems: function() {
-                    let items = this.currentSection === 'tasks' ? this.tasks : this.notes;
-                    
-                    if (this.currentSection === 'tasks') {
-                        items = this.sortTasksByImportance(items);
-                        
-                        if (this.currentCategory !== 'all') {
-                            items = items.filter(task => task.category === this.currentCategory);
-                        }
-                        
-                        const completedTasks = items.filter(task => task.completed);
-                        const incompleteTasks = items.filter(task => !task.completed);
-                        items = this.showCompleted ? [...incompleteTasks, ...completedTasks] : incompleteTasks;
-                    }
-
-                    if (items.length === 0) {
-                        this.elements.itemsContainer.innerHTML = `
-                            <div class="empty-state">
-                                ${this.currentSection === 'tasks' ? 
-                                    (this.showCompleted ? 'Нет задач' : 'Нет активных задач') : 
-                                    'Нет заметок'}
-                            </div>
-                        `;
-                        return;
-                    }
-
-                    if (this.currentSection === 'notes') {
-                        this.renderNotesGrid(items);
-                    } else {
-                        this.renderTasksList(items);
-                    }
-                },
-
-                renderTasksList: function(items) {
-                    this.elements.itemsContainer.innerHTML = items.map(item => {
-                        const dateText = this.currentSection === 'tasks' && item.completed && item.completedAt ?
-                            `Создано: ${this.formatDate(item.createdAt)}\nВыполнено: ${this.formatDate(item.completedAt)}` :
-                            `Создано: ${this.formatDate(item.createdAt)}`;
-
                         return `
-                            <div class="item-card task-card ${item.completed ? 'completed' : ''}" 
-                                 style="border-left-color: var(--${item.category})"
+                            <div class="note-card"
                                  onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
                                 <div class="card-content">
                                     <h3>${item.title}</h3>
-                                    ${item.description ? `<p>${item.description}</p>` : ''}
+                                    ${item.content ? `<p>${item.content}</p>` : ''}
                                     <div class="card-date">${dateText}</div>
                                 </div>
                             </div>
                         `;
-                    }).join('');
-                },
+                    }).join('')}
+                </div>
+            `;
+        }
+    };
 
-                renderNotesGrid: function(items) {
-                    this.elements.itemsContainer.innerHTML = `
-                        <div class="notes-grid">
-                            ${items.map(item => {
-                                const dateText = `Создано: ${this.formatDate(item.createdAt)}`;
-                                
-                                return `
-                                    <div class="note-card"
-                                         onclick="app.openFullView(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                        <div class="card-content">
-                                            <h3>${item.title}</h3>
-                                            ${item.content ? `<p>${item.content}</p>` : ''}
-                                            <div class="card-date">${dateText}</div>
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    `;
-                }
-            };
-
-            app.init();
-            
-            window.app = app;
-        });
+    app.init();
+    
+    window.app = app;
+});
     </script>
 </body>
 </html>
