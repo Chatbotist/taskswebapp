@@ -657,20 +657,12 @@
 
                     this.elements.addButton.addEventListener('click', () => {
                         if (this.currentSection === 'tasks') {
-                            if (this.tasks.length >= this.MAX_TASKS) {
-                                this.showStorageLimitWarning('tasks');
-                                return;
-                            }
                             this.elements.taskTitle.value = '';
                             this.elements.taskDescription.value = '';
                             this.elements.taskCategory.value = this.currentCategory === 'all' ? 
                                 'urgent-important' : this.currentCategory;
                             this.openModal('taskModal');
                         } else {
-                            if (this.notes.length >= this.MAX_NOTES) {
-                                this.showStorageLimitWarning('notes');
-                                return;
-                            }
                             this.elements.noteTitle.value = '';
                             this.elements.noteContent.value = '';
                             this.openModal('noteModal');
@@ -780,35 +772,53 @@
                     const userId = this.getUserId();
                     
                     if (this.webApp?.CloudStorage) {
+                        // Загружаем задачи
                         this.webApp.CloudStorage.getItem(`${userId}_tasks`, (err, data) => {
-                            this.tasks = data ? JSON.parse(data) : [];
-                            this.tasks.forEach(task => {
-                                task.completed = task.completed || false;
-                                task.createdAt = task.createdAt || Date.now();
-                            });
-                            
-                            this.webApp.CloudStorage.getItem(`${userId}_notes`, (err, data) => {
-                                this.notes = data ? JSON.parse(data) : [];
-                                this.notes.forEach(note => {
-                                    note.createdAt = note.createdAt || Date.now();
+                            if (err) {
+                                console.error('Error loading tasks:', err);
+                                this.tasks = [];
+                            } else {
+                                this.tasks = data ? JSON.parse(data) : [];
+                                this.tasks.forEach(task => {
+                                    task.completed = task.completed || false;
+                                    task.createdAt = task.createdAt || Date.now();
                                 });
+                            }
+                            
+                            // Загружаем заметки
+                            this.webApp.CloudStorage.getItem(`${userId}_notes`, (err, data) => {
+                                if (err) {
+                                    console.error('Error loading notes:', err);
+                                    this.notes = [];
+                                } else {
+                                    this.notes = data ? JSON.parse(data) : [];
+                                    this.notes.forEach(note => {
+                                        note.createdAt = note.createdAt || Date.now();
+                                    });
+                                }
                                 this.updateUI();
                             });
                         });
                     } else {
                         // Локальное хранение для браузера
-                        const tasksData = localStorage.getItem(`${userId}_tasks`);
-                        this.tasks = tasksData ? JSON.parse(tasksData) : [];
-                        this.tasks.forEach(task => {
-                            task.completed = task.completed || false;
-                            task.createdAt = task.createdAt || Date.now();
-                        });
-                        
-                        const notesData = localStorage.getItem(`${userId}_notes`);
-                        this.notes = notesData ? JSON.parse(notesData) : [];
-                        this.notes.forEach(note => {
-                            note.createdAt = note.createdAt || Date.now();
-                        });
+                        try {
+                            const tasksData = localStorage.getItem(`${userId}_tasks`);
+                            this.tasks = tasksData ? JSON.parse(tasksData) : [];
+                            this.tasks.forEach(task => {
+                                task.completed = task.completed || false;
+                                task.createdAt = task.createdAt || Date.now();
+                            });
+                            
+                            const notesData = localStorage.getItem(`${userId}_notes`);
+                            this.notes = notesData ? JSON.parse(notesData) : [];
+                            this.notes.forEach(note => {
+                                note.createdAt = note.createdAt || Date.now();
+                            });
+                        } catch (e) {
+                            console.error('Error loading data:', e);
+                            this.tasks = [];
+                            this.notes = [];
+                        }
                         
                         this.updateUI();
                     }
@@ -818,16 +828,27 @@
                     const userId = this.getUserId();
                     
                     if (this.webApp?.CloudStorage) {
+                        // Сохраняем задачи
                         this.webApp.CloudStorage.setItem(
                             `${userId}_tasks`, 
                             JSON.stringify(this.tasks),
                             (err) => {
-                                if (err) console.error('Error saving tasks:', err);
+                                if (err) {
+                                    console.error('Error saving tasks:', err);
+                                    this.showStorageLimitWarning('tasks');
+                                    return;
+                                }
+                                
+                                // Сохраняем заметки
                                 this.webApp.CloudStorage.setItem(
                                     `${userId}_notes`,
                                     JSON.stringify(this.notes),
                                     (err) => {
-                                        if (err) console.error('Error saving notes:', err);
+                                        if (err) {
+                                            console.error('Error saving notes:', err);
+                                            this.showStorageLimitWarning('notes');
+                                            return;
+                                        }
                                         this.updateUI();
                                         if (callback) callback();
                                     }
@@ -842,6 +863,7 @@
                             this.updateUI();
                             if (callback) callback();
                         } catch (e) {
+                            console.error('Error saving data:', e);
                             this.showStorageLimitWarning('storage');
                         }
                     }
@@ -938,11 +960,17 @@
                 },
 
                 showStorageLimitWarning: function(type) {
-                    const message = type === 'tasks' ? 
-                        'Достигнут лимит задач. Удалите старые задачи, чтобы добавить новые.' :
-                        type === 'notes' ?
-                        'Достигнут лимит заметок. Удалите старые заметки, чтобы добавить новые.' :
-                        'Достигнут лимит хранилища. Удалите старые записи, чтобы добавить новые.';
+                    let message = '';
+                    switch(type) {
+                        case 'tasks':
+                            message = 'Достигнут лимит задач. Удалите старые задачи, чтобы добавить новые.';
+                            break;
+                        case 'notes':
+                            message = 'Достигнут лимит заметок. Удалите старые заметки, чтобы добавить новые.';
+                            break;
+                        default:
+                            message = 'Достигнут лимит хранилища. Удалите старые записи, чтобы добавить новые.';
+                    }
                     
                     this.elements.storageLimitWarning.textContent = message;
                     this.elements.storageLimitWarning.style.display = 'block';
